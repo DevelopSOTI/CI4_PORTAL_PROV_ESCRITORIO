@@ -1,0 +1,56 @@
+# ==========================================================================
+#  .gitignore — Solución .NET / Visual Studio (Portal Proveedores)
+# ==========================================================================
+
+# Carpeta de Visual Studio (índices, caché, settings locales) — la que
+# bloqueaba el `git add .` por el .vsidx abierto.
+.vs/
+
+# Salidas de compilación
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+build/
+bld/
+
+# Instalador compilado (artefacto de build — el .iss SÍ se versiona)
+Instalador/Output/
+
+# Archivos de usuario / configuración local de VS
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Resultados de tests / cobertura
+[Tt]est[Rr]esult*/
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+.nuget/
+
+# ReSharper / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+.idea/
+
+# Logs y temporales varios
+*.log
+*.tmp
+*.cache
+*.pidb
+*.svclog
+
+# Archivos del sistema
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk

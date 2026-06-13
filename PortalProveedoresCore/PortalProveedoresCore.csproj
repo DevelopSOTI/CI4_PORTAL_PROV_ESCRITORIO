@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{C0E5A1F1-9B1E-4C7A-B6F5-8A0E1D6F4D11}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PortalProveedoresCore</RootNamespace>
+    <AssemblyName>PortalProveedoresCore</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      FirebirdSql se referencia desde el mismo HintPath relativo que el Service
+      legacy (FacturacionParvada). El Configurador y el Escritorio heredan la
+      DLL transitivamente al copiar la salida del Core a sus bin/.
+    -->
+    <Reference Include="FirebirdSql.Data.FirebirdClient">
+      <HintPath>..\..\..\..\FacturacionParvada\Facturacion\bin\Debug\FirebirdSql.Data.FirebirdClient.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Configuracion\ConexionMicrosip.cs" />
+    <Compile Include="Configuracion\ConfiguradorCamposLibres.cs" />
+    <Compile Include="Configuracion\EncoderXmlMicrosip.cs" />
+    <Compile Include="Configuracion\RegistrosWindows.cs" />
+    <Compile Include="Configuracion\FormatosHumanos.cs" />
+    <Compile Include="Configuracion\Tema.cs" />
+    <Compile Include="Logging\EventoLog.cs" />
+    <Compile Include="Modelos\AlmacenMicrosip.cs" />
+    <Compile Include="Modelos\DiaRecepcion.cs" />
+    <Compile Include="Modelos\EmpresaConfig.cs" />
+    <Compile Include="Modelos\EmpresaMicrosip.cs" />
+    <Compile Include="Modelos\MonedaMicrosip.cs" />
+    <Compile Include="Modelos\ProveedorMicrosip.cs" />
+    <Compile Include="Modelos\RecepcionMicrosip.cs" />
+    <Compile Include="Modelos\DoctoCpMicrosip.cs" />
+    <Compile Include="Modelos\PendientesAplicacion.cs" />
+    <Compile Include="Modelos\AdjuntoMicrosip.cs" />
+    <Compile Include="Modelos\CatalogoMicrosip.cs" />
+    <Compile Include="Modelos\CatalogosFiltros.cs" />
+    <Compile Include="Modelos\CorreoConfig.cs" />
+    <Compile Include="Modelos\ProveedorRegistrado.cs" />
+    <Compile Include="Modelos\CfdiXmlMicrosip.cs" />
+    <Compile Include="Modelos\FacturaAplicar.cs" />
+    <Compile Include="Modelos\ComplementoAplicar.cs" />
+    <Compile Include="Modelos\CreditoDetMicrosip.cs" />
+    <Compile Include="Modelos\FacturaPendienteEscritorio.cs" />
+    <Compile Include="Modelos\ParametroPortal.cs" />
+    <Compile Include="Modelos\TemaPortal.cs" />
+    <Compile Include="Repositorios\IAplicacionRepository.cs" />
+    <Compile Include="Repositorios\AplicacionRepository.cs" />
+    <Compile Include="Pipes\CanalEventos.cs" />
+    <Compile Include="Pipes\ClientePipe.cs" />
+    <Compile Include="Pipes\Comandos.cs" />
+    <Compile Include="Pipes\ConstantesPipe.cs" />
+    <Compile Include="Pipes\Eventos.cs" />
+    <Compile Include="Pipes\MensajeBase.cs" />
+    <Compile Include="Pipes\SerializadorMensajes.cs" />
+    <Compile Include="Pipes\ServidorPipe.cs" />
+    <Compile Include="Pipes\TiposMensaje.cs" />
+    <Compile Include="Servicios\IPortalApi.cs" />
+    <Compile Include="Servicios\PortalApi.cs" />
+    <Compile Include="Servicios\PortalApiException.cs" />
+    <Compile Include="Servicios\EnvioCorreo.cs" />
+    <Compile Include="Servicios\NotificadorAplicacion.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

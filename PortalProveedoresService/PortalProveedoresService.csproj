@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B8FC63A1-1C97-4B25-8DFF-E9845D20269E}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PortalProveedoresService</RootNamespace>
+    <AssemblyName>PortalProveedoresService</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FirebirdSql.Data.FirebirdClient">
+      <HintPath>..\..\..\..\FacturacionParvada\Facturacion\bin\Debug\FirebirdSql.Data.FirebirdClient.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Repositorios\IEmpresasRepository.cs" />
+    <Compile Include="Repositorios\EmpresasRepository.cs" />
+    <Compile Include="Repositorios\IAlmacenesRepository.cs" />
+    <Compile Include="Repositorios\AlmacenesRepository.cs" />
+    <Compile Include="Repositorios\IMonedasRepository.cs" />
+    <Compile Include="Repositorios\MonedasRepository.cs" />
+    <Compile Include="Repositorios\IProveedoresRepository.cs" />
+    <Compile Include="Repositorios\ProveedoresRepository.cs" />
+    <Compile Include="Repositorios\IRecepcionesRepository.cs" />
+    <Compile Include="Repositorios\RecepcionesRepository.cs" />
+    <Compile Include="Repositorios\IDoctosCpRepository.cs" />
+    <Compile Include="Repositorios\DoctosCpRepository.cs" />
+    <Compile Include="Repositorios\IResolutorEmpresaMicrosip.cs" />
+    <Compile Include="Repositorios\ResolutorEmpresaMicrosip.cs" />
+    <Compile Include="Repositorios\ICacheEmpresasAutorizadas.cs" />
+    <Compile Include="Repositorios\CacheEmpresasAutorizadas.cs" />
+    <Compile Include="Sincronizacion\ISincronizador.cs" />
+    <Compile Include="Sincronizacion\SincronizadorEmpresas.cs" />
+    <Compile Include="Sincronizacion\SincronizadorAlmacenes.cs" />
+    <Compile Include="Sincronizacion\SincronizadorMonedas.cs" />
+    <Compile Include="Sincronizacion\SincronizadorProveedores.cs" />
+    <Compile Include="Sincronizacion\SincronizadorRecepciones.cs" />
+    <Compile Include="Sincronizacion\SincronizadorCreditos.cs" />
+    <Compile Include="Sincronizacion\SincronizadorNotas.cs" />
+    <Compile Include="Sincronizacion\SincronizadorAplicacion.cs" />
+    <Compile Include="Service1.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Service1.Designer.cs">
+      <DependentUpon>Service1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="app.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PortalProveedoresCore\PortalProveedoresCore.csproj">
+      <Project>{C0E5A1F1-9B1E-4C7A-B6F5-8A0E1D6F4D11}</Project>
+      <Name>PortalProveedoresCore</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Service1.resx">
+      <DependentUpon>Service1.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

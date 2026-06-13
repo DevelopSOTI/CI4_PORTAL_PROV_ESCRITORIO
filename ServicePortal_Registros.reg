@@ -1,0 +1,42 @@
+Windows Registry Editor Version 5.00
+
+; -----------------------------------------------------------------------------
+; Registros para el Servicio Portal / Configurador (SOTI)
+; Ruta: HKLM\SOFTWARE\SOTI\Service Portal
+;
+; Microsip (Firebird):
+;   - MICRO_ROOT apunta a la carpeta "Microsip datos" (NO incluir \System).
+;     El Configurador agrega "\System\CONFIG.FDB" automáticamente para el
+;     catálogo de empresas, y "\<empresa>.FDB" para cada empresa individual.
+;
+; NOTA: las llaves MYSQL_* del modelo antiguo NO se incluyen. El servicio nuevo
+; ya no se conecta directo a MySQL: solo postea JSON a /api/empresas/sync con
+; PORTAL_API_KEY. El acceso a MySQL lo hace el portal desde su .env en el hosting.
+;
+; Importa este archivo en el servidor con doble clic (requiere admin) o:
+;   reg import "C:\ruta\ServicePortal_Registros.reg"
+; -----------------------------------------------------------------------------
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\SOTI\Service Portal]
+
+; ----- Microsip (Firebird) -----
+"MICRO_SERV"="localhost"
+"MICRO_ROOT"="C:\\Microsip datos"
+"MICRO_USER"="SYSDBA"
+"MICRO_PASS"="masterkey"
+"MICRO_BD"=""
+
+; ----- Aplicación / servicio -----
+; MODE_APPLI eliminado: el comportamiento Auto/Semi del servicio vive en
+; PARAMETROS.APLICA_DIR (MySQL del portal), no en HKLM.
+"MAILS_SEND"="True"
+"MODE_TIMER"="1740"
+"SERVICE_NAME"="WSPortal"
+"RUTA_ARCHIVOS"="C:\\prueba"
+; Si True, el servicio envía correo al proveedor al registrar una compra a
+; partir de una de sus facturas. Cada cliente decide independiente.
+"ENVIAR_CORREO_COMPRAS"="False"
+
+; ----- Portal nuevo (REST) -----
+"PORTAL_BASE_URL"="https://proveedores.soti.com.mx"
+"PORTAL_API_KEY"="acf2c85a4b64f1c21731ee4a94e82e6de0af4cf03b04c39c"
