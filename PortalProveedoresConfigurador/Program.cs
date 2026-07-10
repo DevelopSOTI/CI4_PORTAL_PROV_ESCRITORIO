@@ -94,8 +94,9 @@ namespace PortalProveedoresConfigurador
         private static int ProbarPortalHeadless(string[] argv)
         {
             if (argv.Length < 3) return 2;
-            var baseUrl = argv[1];
-            var apiKey  = argv[2];
+            var baseUrl = LimpiarArg(argv[1]);
+            var apiKey  = LimpiarArg(argv[2]);
+            if (baseUrl.Length == 0 || apiKey.Length == 0) return 2;
             try
             {
                 IPortalApi api = new PortalApi(baseUrl, apiKey);
@@ -110,17 +111,28 @@ namespace PortalProveedoresConfigurador
         }
 
         /// <summary>
-        /// <c>--probar-microsip &lt;servidor&gt; &lt;root&gt; &lt;usuario&gt; &lt;pass&gt;</c> — prueba
+        /// <c>--probar-microsip &lt;servidor&gt; &lt;root&gt; &lt;usuario&gt; [pass]</c> — prueba
         /// la conexión a CONFIG.FDB de Microsip con esas credenciales (sin leer
         /// el registro). Exit 0 = OK, 1 = no conectó, 2 = faltan argumentos.
+        ///
+        /// El password es OPCIONAL (hay instalaciones con pass vacío — mismo
+        /// criterio que TareasElevadas.GuardarMicrosip). Los argumentos se
+        /// sanean con Trim de espacios y de comillas sueltas: si el llamador
+        /// armó mal el quoting (p. ej. una ruta terminada en '\' que escapa la
+        /// comilla de cierre y fusiona argumentos), preferimos limpiar lo
+        /// recuperable antes que fallar con "faltan argumentos".
         /// </summary>
         private static int ProbarMicrosipHeadless(string[] argv)
         {
-            if (argv.Length < 5) return 2;
-            var servidor = argv[1];
-            var root     = argv[2];
-            var usuario  = argv[3];
-            var pass     = argv[4];
+            if (argv.Length < 4) return 2;
+            var servidor = LimpiarArg(argv[1]);
+            var root     = LimpiarArg(argv[2]);
+            var usuario  = LimpiarArg(argv[3]);
+            var pass     = argv.Length >= 5 ? LimpiarArg(argv[4]) : "";
+
+            if (servidor.Length == 0 || root.Length == 0 || usuario.Length == 0)
+                return 2;
+
             try
             {
                 string msg;
@@ -133,6 +145,15 @@ namespace PortalProveedoresConfigurador
             {
                 return 1;
             }
+        }
+
+        /// <summary>
+        /// Sanea un argumento de línea de comandos: quita espacios y comillas
+        /// dobles residuales de un quoting mal armado por el llamador.
+        /// </summary>
+        private static string LimpiarArg(string s)
+        {
+            return (s ?? "").Trim().Trim('"').Trim();
         }
 
         /// <summary>Busca el primer argumento con prefijo --task= y devuelve su valor, o null.</summary>

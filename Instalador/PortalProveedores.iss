@@ -271,6 +271,28 @@ begin
   ExtractTemporaryFile('FirebirdSql.Data.FirebirdClient.dll');
 end;
 
+// Cita un argumento para la linea de comandos Windows (CreateProcess).
+// REGLA CLAVE: las barras invertidas FINALES deben duplicarse antes de la
+// comilla de cierre — si no, '\"' escapa la comilla, los argumentos se
+// fusionan y el helper recibe menos de los esperados (era el bug de
+// "Argumentos invalidos" cuando la ruta de Microsip terminaba en '\',
+// p. ej. "C:\Microsip datos\").
+function QuoteArg(const S: string): string;
+var
+  V: string;
+  I, NumBS: Integer;
+begin
+  V := Trim(S);
+  NumBS := 0;
+  I := Length(V);
+  while (I > 0) and (V[I] = '\') do
+  begin
+    NumBS := NumBS + 1;
+    I := I - 1;
+  end;
+  Result := '"' + V + StringOfChar('\', NumBS) + '"';
+end;
+
 procedure OnProbarPortal(Sender: TObject);
 var
   ResultCode: Integer;
@@ -285,7 +307,7 @@ begin
   end;
   ExtraerHerramientasPrueba();
   if not Exec(ExpandConstant('{tmp}\PortalProveedoresConfigurador.exe'),
-        '--probar-portal "' + Url + '" "' + Key + '"',
+        '--probar-portal ' + QuoteArg(Url) + ' ' + QuoteArg(Key),
         ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     MsgBox('No se pudo ejecutar el Configurador para probar el portal.', mbError, MB_OK);
@@ -315,7 +337,8 @@ begin
   end;
   ExtraerHerramientasPrueba();
   if not Exec(ExpandConstant('{tmp}\PortalProveedoresConfigurador.exe'),
-        '--probar-microsip "' + Srv + '" "' + Root + '" "' + User + '" "' + Pass + '"',
+        '--probar-microsip ' + QuoteArg(Srv) + ' ' + QuoteArg(Root) + ' '
+          + QuoteArg(User) + ' ' + QuoteArg(Pass),
         ExpandConstant('{tmp}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
     MsgBox('No se pudo ejecutar el Configurador para probar Microsip.', mbError, MB_OK);
