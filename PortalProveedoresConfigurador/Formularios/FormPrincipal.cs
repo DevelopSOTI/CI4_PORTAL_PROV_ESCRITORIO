@@ -964,6 +964,8 @@ namespace PortalProveedoresConfigurador.Formularios
                 partes.Add(r.AtributosProveedorCreados + " cabecera(s) en ATRIBUTOS (PROVEEDOR)");
             if (r.FilasActualizadasConDefaults > 0)
                 partes.Add(r.FilasActualizadasConDefaults + " fila(s) actualizada(s) con defaults");
+            if (r.FilasLibresProveedorCreadas > 0)
+                partes.Add(r.FilasLibresProveedorCreadas + " proveedor(es) SIN campos libres — fila creada (destraba su sincronización)");
             if (r.FolioWebCreado)
                 partes.Add("folio WEB en FOLIOS_COMPRAS");
             bool usoCfdiNew = r.UsoCfdiAtributoCreado || r.UsoCfdiOpcionesCreadas > 0 || r.UsoCfdiColumnaCreada;
@@ -983,6 +985,8 @@ namespace PortalProveedoresConfigurador.Formularios
             foreach (var err in r.AtributosProveedorConError) warnings.Add("• ATRIBUTOS " + err);
             if (!string.IsNullOrEmpty(r.DefaultsRetroactivosError))
                 warnings.Add("• defaults retroactivos: " + r.DefaultsRetroactivosError);
+            if (!string.IsNullOrEmpty(r.FilasLibresProveedorError))
+                warnings.Add("• filas LIBRES_PROVEEDOR: " + r.FilasLibresProveedorError);
             if (!string.IsNullOrEmpty(r.FolioWebError))       warnings.Add("• folio WEB: " + r.FolioWebError);
             if (!string.IsNullOrEmpty(r.UsoCfdiError))        warnings.Add("• USO_CFDI: " + r.UsoCfdiError);
             if (r.UsoCfdiTablaAusente)

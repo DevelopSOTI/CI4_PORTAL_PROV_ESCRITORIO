@@ -187,6 +187,17 @@ namespace PortalProveedoresCore.Configuracion
                 // aún así separamos para aislar fallos.
                 await AplicarDefaultsRetroactivosAsync(con.FBC, resumen, ct).ConfigureAwait(false);
 
+                // FASE 2.5: VALIDACIÓN + RECUPERACIÓN de filas LIBRES_PROVEEDOR.
+                // Microsip DEBERÍA crear una fila en LIBRES_PROVEEDOR por cada
+                // proveedor al darlo de alta, pero se han visto BDs (bug de
+                // Microsip) donde faltan. El Service hace INNER JOIN contra
+                // LIBRES_PROVEEDOR (ProveedoresRepository.cs:90), así que un
+                // proveedor SIN fila NO sincroniza al portal (ej. 500/1500).
+                // Este INSERT..SELECT fuerza una fila con los defaults por cada
+                // proveedor que no la tenga. Es idempotente (0 filas si ya están
+                // todas) y aislado para no tumbar el resto si falla.
+                await AsegurarFilasLibresProveedorAsync(con.FBC, resumen, ct).ConfigureAwait(false);
+
                 // Folio WEB — bloque aislado para no contaminar lo anterior si falla.
                 await AsegurarFolioWebAsync(con.FBC, resumen, ct).ConfigureAwait(false);
 
@@ -542,6 +553,49 @@ namespace PortalProveedoresCore.Configuracion
             }
         }
 
+        /// <summary>
+        /// Fuerza una fila en LIBRES_PROVEEDOR por cada proveedor que NO la tenga.
+        /// Red de seguridad para el bug de Microsip donde faltan filas: sin fila,
+        /// el proveedor no sincroniza al portal (el Service hace INNER JOIN contra
+        /// LIBRES_PROVEEDOR). Idempotente — 0 filas si ya están todas.
+        ///
+        /// INSERT..SELECT con LEFT JOIN + WHERE PROVEEDOR_ID IS NULL, con los
+        /// defaults (PCTJE_RECHAZO=0, PERMITIR_SIN_RECEPCION='N',
+        /// ADJUNTAR_ARCHIVOS='S', resto NULL). Requiere que las 9 columnas ya
+        /// existan (las asegura AsegurarCamposProveedorAsync antes en el flujo).
+        /// Aislado: un fallo no invalida la autorización.
+        /// </summary>
+        private static async Task AsegurarFilasLibresProveedorAsync(
+            FbConnection con, ResumenConfiguracionEmpresa resumen, CancellationToken ct)
+        {
+            const string sql =
+                "INSERT INTO LIBRES_PROVEEDOR " +
+                "  (PROVEEDOR_ID, BANCO, SUCURSAL, CLABE, CTA_TRANSFERENCIA_ELECTRONICA, " +
+                "   CORREO_CXC, PCTJE_RECHAZO, PERMITIR_SIN_RECEPCION, REFERENCIA, ADJUNTAR_ARCHIVOS) " +
+                "SELECT P.PROVEEDOR_ID, NULL, NULL, NULL, NULL, NULL, 0, 'N', NULL, 'S' " +
+                "  FROM PROVEEDORES P " +
+                "  LEFT JOIN LIBRES_PROVEEDOR L ON (P.PROVEEDOR_ID = L.PROVEEDOR_ID) " +
+                " WHERE L.PROVEEDOR_ID IS NULL";
+
+            using (var tx = con.BeginTransaction())
+            {
+                try
+                {
+                    using (var cmd = new FbCommand(sql, con, tx))
+                    {
+                        int filas = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+                        resumen.FilasLibresProveedorCreadas = filas;
+                    }
+                    tx.Commit();
+                }
+                catch (Exception ex)
+                {
+                    try { tx.Rollback(); } catch { /* swallow */ }
+                    resumen.FilasLibresProveedorError = ex.Message.Trim();
+                }
+            }
+        }
+
         // ====================================================================
         // FOLIOS_COMPRAS — fila SERIE='WEB'
         // ====================================================================
@@ -648,7 +702,7 @@ namespace PortalProveedoresCore.Configuracion
             {
                 int atributoId;
                 bool atributoCreado = false;
-                bool opcionesCreadas = false;
+                int  opcionesAgregadas = 0;
 
                 using (var tx = con.BeginTransaction())
                 {
@@ -661,17 +715,13 @@ namespace PortalProveedoresCore.Configuracion
                             atributoCreado = true;
                         }
 
-                        int yaExistentes = await ContarOpcionesAsync(con, tx, atributoId, ct).ConfigureAwait(false);
-                        if (yaExistentes == 0)
-                        {
-                            await CrearOpcionesUsoCfdiAsync(con, tx, atributoId, ct).ConfigureAwait(false);
-                            opcionesCreadas = true;
-                        }
-                        else if (yaExistentes != UsoCfdiOpciones.Length)
-                        {
-                            resumen.UsoCfdiError = "lista parcial (" + yaExistentes
-                                + "/" + UsoCfdiOpciones.Length + " opciones) — revisar manualmente en Microsip";
-                        }
+                        // Completa SOLO las opciones que falten (match por el
+                        // prefijo SAT: "G01", "CP01"…). Si el Microsip del cliente
+                        // ya tenía algunas cargadas (a mano o de una corrida
+                        // previa incompleta), se agregan únicamente las ausentes
+                        // en lugar de quedarse a medias. Idempotente: si están
+                        // las 25, no inserta nada.
+                        opcionesAgregadas = await AsegurarOpcionesUsoCfdiAsync(con, tx, atributoId, ct).ConfigureAwait(false);
 
                         tx.Commit();
                     }
@@ -683,7 +733,7 @@ namespace PortalProveedoresCore.Configuracion
                 }
 
                 resumen.UsoCfdiAtributoCreado  = atributoCreado;
-                resumen.UsoCfdiOpcionesCreadas = opcionesCreadas ? UsoCfdiOpciones.Length : 0;
+                resumen.UsoCfdiOpcionesCreadas = opcionesAgregadas;
 
                 var colsLibresRec = await ObtenerColumnasTablaAsync(con, "LIBRES_REC_CM", ct).ConfigureAwait(false);
                 if (!colsLibresRec.Contains("USO_CFDI"))
@@ -734,10 +784,17 @@ namespace PortalProveedoresCore.Configuracion
                     posicion = Convert.ToInt16(rd[0]);
             }
 
+            // Mismas columnas que el legacy (C_FUNCIONES_MSP.AgregarCampoLibre,
+            // llamada de USO_CFDI en C_FUNCIONES_MSP.cs:284): lista TIPO='L', sin
+            // longitud ni escala, VALOR_MINIMO/MAXIMO=0, y sobre todo
+            // VALOR_DEFAULT_NUMERICO = -1 (convención Microsip para "lista sin
+            // opción por default"). El nuevo omitía estas columnas.
             using (var cmd = new FbCommand(
                 "INSERT INTO ATRIBUTOS " +
-                "  (ATRIBUTO_ID, NOMBRE, NOMBRE_COLUMNA, CLAVE_OBJETO, POSICION, TIPO, ESCALA, REQUERIDO) " +
-                "VALUES (@id, 'USO_CFDI', 'USO_CFDI', 'REC_CM', @pos, 'L', 0, 'N')", con, tx))
+                "  (ATRIBUTO_ID, NOMBRE, NOMBRE_COLUMNA, CLAVE_OBJETO, POSICION, TIPO, " +
+                "   LONGITUD, ESCALA, VALOR_MINIMO, VALOR_MAXIMO, VALOR_DEFAULT_NUMERICO, VALOR_DEFAULT_CARACTER, REQUERIDO) " +
+                "VALUES (@id, 'USO_CFDI', 'USO_CFDI', 'REC_CM', @pos, 'L', " +
+                "        NULL, NULL, 0, 0, -1, NULL, 'N')", con, tx))
             {
                 cmd.Parameters.Add("@id",  FbDbType.Integer).Value  = newId;
                 cmd.Parameters.Add("@pos", FbDbType.SmallInt).Value = posicion;
@@ -747,25 +804,37 @@ namespace PortalProveedoresCore.Configuracion
             return newId;
         }
 
-        private static async Task<int> ContarOpcionesAsync(FbConnection con, FbTransaction tx, int atributoId, CancellationToken ct)
+        /// <summary>
+        /// Recorre las 25 opciones y agrega en LISTAS_ATRIBUTOS las que falten,
+        /// verificando por (ATRIBUTO_ID, POSICION) — RÉPLICA EXACTA del legacy
+        /// (<c>C_FUNCIONES_MSP.AgregarValorLista</c>, C_FUNCIONES_MSP.cs:491-522).
+        /// Así, aunque la empresa ya tuviera algunas opciones en las primeras
+        /// posiciones, se completan las posiciones siguientes (era el motivo de
+        /// "solo salen 3 opciones": la lógica vieja del nuevo era todo-o-nada).
+        /// Devuelve cuántas agregó.
+        /// </summary>
+        private static async Task<int> AsegurarOpcionesUsoCfdiAsync(
+            FbConnection con, FbTransaction tx, int atributoId, CancellationToken ct)
         {
-            using (var cmd = new FbCommand(
-                "SELECT COUNT(*) FROM LISTAS_ATRIBUTOS WHERE ATRIBUTO_ID = @aid", con, tx))
-            {
-                cmd.Parameters.Add("@aid", FbDbType.Integer).Value = atributoId;
-                var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
-                return Convert.ToInt32(result);
-            }
-        }
-
-        private static async Task CrearOpcionesUsoCfdiAsync(FbConnection con, FbTransaction tx, int atributoId, CancellationToken ct)
-        {
+            int agregadas = 0;
             for (int i = 0; i < UsoCfdiOpciones.Length; i++)
             {
                 ct.ThrowIfCancellationRequested();
+                short posicion = (short) (i + 1);
+
+                // ¿Ya existe una opción en esta POSICION para este atributo?
+                // (idempotente, igual que el legacy: WHERE ATRIBUTO_ID AND POSICION)
+                using (var cmd = new FbCommand(
+                    "SELECT COUNT(*) FROM LISTAS_ATRIBUTOS WHERE ATRIBUTO_ID = @aid AND POSICION = @pos", con, tx))
+                {
+                    cmd.Parameters.Add("@aid", FbDbType.Integer).Value  = atributoId;
+                    cmd.Parameters.Add("@pos", FbDbType.SmallInt).Value = posicion;
+                    var existe = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false));
+                    if (existe > 0) continue;
+                }
 
                 int listaId = await GenerarCatalogoIdAsync(con, tx, ct).ConfigureAwait(false);
-                if (listaId == 0) throw new Exception("GEN_CATALOGO_ID devolvió 0 en opción " + (i + 1));
+                if (listaId == 0) throw new Exception("GEN_CATALOGO_ID devolvió 0 en la opción " + (i + 1));
 
                 using (var cmd = new FbCommand(
                     "INSERT INTO LISTAS_ATRIBUTOS (LISTA_ATRIB_ID, ATRIBUTO_ID, VALOR_DESPLEGADO, POSICION) " +
@@ -774,10 +843,12 @@ namespace PortalProveedoresCore.Configuracion
                     cmd.Parameters.Add("@lid", FbDbType.Integer).Value  = listaId;
                     cmd.Parameters.Add("@aid", FbDbType.Integer).Value  = atributoId;
                     cmd.Parameters.Add("@val", FbDbType.VarChar).Value  = UsoCfdiOpciones[i];
-                    cmd.Parameters.Add("@pos", FbDbType.SmallInt).Value = (short)(i + 1);
+                    cmd.Parameters.Add("@pos", FbDbType.SmallInt).Value = posicion;
                     await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
                 }
+                agregadas++;
             }
+            return agregadas;
         }
 
         private static async Task<int> GenerarCatalogoIdAsync(FbConnection con, FbTransaction tx, CancellationToken ct)
@@ -934,6 +1005,16 @@ namespace PortalProveedoresCore.Configuracion
 
         /// <summary>Mensaje libre si la fase 2 falló. No invalida el resto.</summary>
         public string DefaultsRetroactivosError { get; set; }
+
+        /// <summary>
+        /// Filas insertadas en LIBRES_PROVEEDOR para proveedores que no tenían
+        /// (bug de Microsip). 0 = todos ya tenían su fila. Es el número que
+        /// destraba la sincronización de esos proveedores al portal.
+        /// </summary>
+        public int FilasLibresProveedorCreadas { get; set; }
+
+        /// <summary>Mensaje libre si la recuperación de filas LIBRES_PROVEEDOR falló.</summary>
+        public string FilasLibresProveedorError { get; set; }
 
         /// <summary>True si se insertó FOLIOS_COMPRAS SERIE='WEB' en este ciclo.</summary>
         public bool FolioWebCreado { get; set; }
