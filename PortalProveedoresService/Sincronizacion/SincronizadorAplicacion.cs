@@ -579,7 +579,7 @@ namespace PortalProveedoresService.Sincronizacion
                     emp.emp_id_msp,
                     f.FOLIO_COMPRA,
                     f.FECHA_FACTURA,
-                    f.FECHA_RECEPCION,
+                    f.FECHA_PAGO,        // fecha estimada de pago (no la de recepción)
                     ct
                 ).ConfigureAwait(false);
 

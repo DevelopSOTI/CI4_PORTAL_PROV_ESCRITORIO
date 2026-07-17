@@ -72,13 +72,20 @@ namespace PortalProveedoresCore.Servicios
         /// <param name="empresaId">EMP_ID_MSP — la empresa autorizada.</param>
         /// <param name="folioCompra">Folio del CFDI del proveedor (FacturaAplicar.FOLIO_COMPRA).</param>
         /// <param name="fechaFactura">Fecha del CFDI (string ISO, como lo entrega el portal).</param>
-        /// <param name="fechaRecepcion">Fecha estimada de pago a mostrar al proveedor.</param>
+        /// <param name="fechaEstimadaPago">
+        /// Fecha estimada de pago a mostrar al proveedor. Debe ser
+        /// <c>FacturaAplicar.FECHA_PAGO</c> (F.FECHA_PAGO del portal) — NO la
+        /// fecha de recepción ni la de la factura. El SOAP legacy pasaba aquí la
+        /// fecha de recepción, pero eso mostraba una fecha incorrecta (a menudo
+        /// igual a la de la factura); el requerimiento del usuario es la fecha
+        /// estimada de pago real.
+        /// </param>
         public async Task<ResultadoNotificacion> NotificarFacturaAplicadaAsync(
             int proveedorId,
             int empresaId,
             string folioCompra,
             string fechaFactura,
-            string fechaRecepcion,
+            string fechaEstimadaPago,
             CancellationToken ct)
         {
             var r = new ResultadoNotificacion();
@@ -130,20 +137,17 @@ namespace PortalProveedoresCore.Servicios
             //    Texto plano (no HTML) — el SOAP usa email.Body sin IsBodyHtml=true.
             const string asunto = "Contra recibo electronico";
 
-            string fechaFacCorta   = FormatearFechaCorta(fechaFactura);
-            string fechaRecepCorta = FormatearFechaCorta(fechaRecepcion);
+            string fechaFacCorta  = FormatearFechaCorta(fechaFactura);
+            string fechaPagoCorta = FormatearFechaCorta(fechaEstimadaPago);
 
-            // Cadena LITERAL del SOAP C_FUNCIONES.cs:636-640:
-            //   string mensaje = "Estimado proveedor \r\n\n";
-            //   mensaje += "Le notificamos que la factura " + folioFac + " con fecha " + fechaFac.ToShortDateString();
-            //   mensaje += " fue recibida y paso a pendiente de pago, la fecha estimada de pago seria el dia ";
-            //   mensaje += fechaProv + " \r\n";
-            //   mensaje += "Favor de verificar el estatus de la factura en el portal de proveedores.";
+            // Cadena LITERAL del SOAP C_FUNCIONES.cs:636-640, con una corrección:
+            // "la fecha estimada de pago" ahora usa FECHA_PAGO (fecha programada
+            // de pago), no la de recepción que ponía el SOAP.
             var mensaje =
                 "Estimado proveedor \r\n\n"
                 + "Le notificamos que la factura " + (folioCompra ?? "") + " con fecha " + fechaFacCorta
                 + " fue recibida y paso a pendiente de pago, la fecha estimada de pago seria el dia "
-                + fechaRecepCorta + " \r\n"
+                + fechaPagoCorta + " \r\n"
                 + "Favor de verificar el estatus de la factura en el portal de proveedores.";
 
             // 4) Envío SMTP — best-effort, captura cualquier excepción.

@@ -314,7 +314,7 @@ namespace PortalProveedoresEscritorio.Servicios
                         empresa.Id,
                         fa.FOLIO_COMPRA,
                         fa.FECHA_FACTURA,
-                        fa.FECHA_RECEPCION,
+                        fa.FECHA_PAGO,        // fecha estimada de pago (no la de recepción)
                         ct
                     ).ConfigureAwait(false);
                 }
