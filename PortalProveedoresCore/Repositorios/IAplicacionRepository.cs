@@ -81,6 +81,7 @@ namespace PortalProveedoresCore.Repositorios
             AdjuntoDescargado[] adjuntos,
             System.Func<int, string, System.Threading.Tasks.Task<bool>> marcarPortalAsync,
             System.Func<int, string, System.Threading.Tasks.Task<bool>> sincronizarPortalYaAplicadaAsync,
+            System.DateTime? fechaCompra,
             CancellationToken ct);
 
         /// <summary>
@@ -111,6 +112,7 @@ namespace PortalProveedoresCore.Repositorios
             CfdiXmlMicrosip cfdi,
             AdjuntoDescargado[] adjuntos,
             System.Func<int, string, System.Threading.Tasks.Task<bool>> marcarPortalAsync,
+            System.DateTime? fechaCompra,
             CancellationToken ct);
 
         /// <summary>

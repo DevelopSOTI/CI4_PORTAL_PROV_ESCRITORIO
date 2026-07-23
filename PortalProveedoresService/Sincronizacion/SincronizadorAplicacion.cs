@@ -290,7 +290,7 @@ namespace PortalProveedoresService.Sincronizacion
                 };
 
                 var r = await _repo.AplicarFacturaAsync(nombreCorto, f, cfdi, adjuntosDescargados,
-                    marcarPortal, sincronizarPortalYaAplicada, ct).ConfigureAwait(false);
+                    marcarPortal, sincronizarPortalYaAplicada, null, ct).ConfigureAwait(false);
 
                 switch (r.tipo)
                 {

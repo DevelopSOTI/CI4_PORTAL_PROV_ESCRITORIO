@@ -240,7 +240,7 @@ namespace PortalProveedoresEscritorio.Formularios
         {
             this.txtProveedor.Text  = SafeString(_factura.PROVEEDOR_NOMBRE);
             this.txtFolioFac.Text   = SafeString(_factura.FOLIO_PROV);
-            this.txtFechaFac1.Text  = FormatearFecha(_factura.FECHA_FACTURA);
+            this.dtpFechaFac1.Value = ParsearFechaODefault(_factura.FECHA_FACTURA);
             this.txtAtraso.Text     = CalcularAtraso(_factura.FECHA_PAGO);
             this.txtFechaSubio.Text = FormatearFecha(_factura.FECHA_RECEPCION);
             this.txtSugerida.Text   = FormatearFecha(_factura.FECHA_PAGO);
@@ -666,13 +666,18 @@ namespace PortalProveedoresEscritorio.Formularios
             _cts = new CancellationTokenSource();
             var progreso = new Progress<string>(msg => MostrarEstado(msg, EstadoTipo.Trabajando));
 
+            // Captura la fecha elegida por el operador en el hilo de UI (el
+            // DateTimePicker no puede leerse desde el Task.Run). Réplica del
+            // SOAP: FECHA_DTP → DOCTOS_CM.FECHA (F_APLICAR_FACTURA.cs:387,1222).
+            var fechaCompra = this.dtpFechaFac1.Value;
+
             ResultadoAplicacion r;
             try
             {
                 r = await Task.Run(
                     () => _aplicador.AplicarAsync(
                         _empresa, _factura, articulo, condicionPago,
-                        _usuarioMicrosip, progreso, _cts.Token),
+                        _usuarioMicrosip, fechaCompra, progreso, _cts.Token),
                     _cts.Token);
             }
             catch (OperationCanceledException)
@@ -1008,6 +1013,17 @@ namespace PortalProveedoresEscritorio.Formularios
                                   DateTimeStyles.None, out d))
                 return d.ToString("dd / MMM / yyyy", new CultureInfo("es-MX"));
             return raw;
+        }
+
+        /// <summary>Parsea la fecha del CFDI para el DateTimePicker; si no
+        /// parsea usa hoy (el control no admite valores inválidos).</summary>
+        private static DateTime ParsearFechaODefault(string raw)
+        {
+            DateTime d;
+            if (!string.IsNullOrEmpty(raw) &&
+                DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out d))
+                return d;
+            return DateTime.Today;
         }
 
         private static string FormatearTotal(decimal total, string moneda)

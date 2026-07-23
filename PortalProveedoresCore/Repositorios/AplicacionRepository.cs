@@ -40,6 +40,7 @@ namespace PortalProveedoresCore.Repositorios
             AdjuntoDescargado[] adjuntos,
             Func<int, string, Task<bool>> marcarPortalAsync,
             Func<int, string, Task<bool>> sincronizarPortalYaAplicadaAsync,
+            DateTime? fechaCompra,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -66,7 +67,7 @@ namespace PortalProveedoresCore.Repositorios
 
                 // Bloques 1-11: misma lógica que el dry-run.
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, ct
+                    con.FBC, tx, factura, cfdi, fechaCompra, ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque       = ejecucion.UltimoBloque;
@@ -217,6 +218,7 @@ namespace PortalProveedoresCore.Repositorios
             string articuloNombre, string condicionPagoNombre,
             CfdiXmlMicrosip cfdi, AdjuntoDescargado[] adjuntos,
             Func<int, string, Task<bool>> marcarPortalAsync,
+            DateTime? fechaCompra,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -394,7 +396,7 @@ namespace PortalProveedoresCore.Repositorios
                 await InsertarDoctosCmSinRecepcionAsync(
                     con.FBC, tx, nuevoDoctoCmId, sucursalId, folioFinal, factura,
                     prov, factura.ALMACEN_FK_MSP, monedaId, condPagoId,
-                    folioCompra, importeTotal, ct
+                    folioCompra, importeTotal, fechaCompra, ct
                 ).ConfigureAwait(false);
 
                 // === BLOQUE 9: INSERT DOCTOS_CM_DET (1 línea genérica) ===========
@@ -1160,7 +1162,7 @@ namespace PortalProveedoresCore.Repositorios
                 tx = con.FBC.BeginTransaction(IsolationLevel.ReadCommitted);
 
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, ct
+                    con.FBC, tx, factura, cfdi, null, ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque        = ejecucion.UltimoBloque;
@@ -1210,7 +1212,7 @@ namespace PortalProveedoresCore.Repositorios
         /// </summary>
         private static async Task<EjecucionBloques> EjecutarBloques1A11Async(
             FbConnection con, FbTransaction tx,
-            FacturaAplicar factura, CfdiXmlMicrosip cfdi, CancellationToken ct)
+            FacturaAplicar factura, CfdiXmlMicrosip cfdi, DateTime? fechaCompra, CancellationToken ct)
         {
             var e = new EjecucionBloques();
 
@@ -1322,7 +1324,7 @@ namespace PortalProveedoresCore.Repositorios
 
             await InsertarDoctosCmAsync(
                 con, tx, nuevoDoctoCmId, recepcionOrigen, factura,
-                folioFinal, folioCompra, ct
+                folioFinal, folioCompra, fechaCompra, ct
             ).ConfigureAwait(false);
 
             // === BLOQUE 5: INSERT DOCTOS_CM_LIGAS =============================
@@ -1582,7 +1584,7 @@ namespace PortalProveedoresCore.Repositorios
         private static async Task InsertarDoctosCmAsync(
             FbConnection con, FbTransaction tx,
             int nuevoDoctoCmId, RecepcionOrigen origen, FacturaAplicar factura,
-            string folioFinal, string folioCompra, CancellationToken ct)
+            string folioFinal, string folioCompra, DateTime? fechaCompra, CancellationToken ct)
         {
             const string sql =
                 "INSERT INTO DOCTOS_CM (" +
@@ -1609,7 +1611,7 @@ namespace PortalProveedoresCore.Repositorios
                 cmd.Parameters.Add("@subtipo",      FbDbType.VarChar).Value   = (object) origen.SubtipoDocto ?? DBNull.Value;
                 cmd.Parameters.Add("@sucursal",     FbDbType.Integer).Value   = origen.SucursalId;
                 cmd.Parameters.Add("@folio",        FbDbType.VarChar).Value   = folioFinal;
-                cmd.Parameters.Add("@fecha",        FbDbType.TimeStamp).Value = ParsearFecha(factura.FECHA);
+                cmd.Parameters.Add("@fecha",        FbDbType.TimeStamp).Value = (fechaCompra ?? ParsearFecha(factura.FECHA));
                 cmd.Parameters.Add("@claveProv",    FbDbType.VarChar).Value   = (object) origen.ClaveProv ?? DBNull.Value;
                 cmd.Parameters.Add("@proveedor",    FbDbType.Integer).Value   = origen.ProveedorId;
                 cmd.Parameters.Add("@folioProv",    FbDbType.VarChar).Value   = folioCompra ?? "";
@@ -2412,6 +2414,7 @@ namespace PortalProveedoresCore.Repositorios
             FacturaAplicar factura, ProveedorPrincipalFb prov,
             int almacenId, int monedaId, int condPagoId,
             string folioCompra, decimal importeTotal,
+            DateTime? fechaCompra,
             CancellationToken ct)
         {
             const string sql =
@@ -2451,7 +2454,7 @@ namespace PortalProveedoresCore.Repositorios
                 cmd.Parameters.Add("@docto",        FbDbType.Integer).Value   = doctoCmId;
                 cmd.Parameters.Add("@sucursal",     FbDbType.Integer).Value   = sucursalId;
                 cmd.Parameters.Add("@folio",        FbDbType.VarChar).Value   = folioFinal;
-                cmd.Parameters.Add("@fecha",        FbDbType.TimeStamp).Value = DateTime.Today;
+                cmd.Parameters.Add("@fecha",        FbDbType.TimeStamp).Value = (fechaCompra ?? DateTime.Today);
                 cmd.Parameters.Add("@claveProv",    FbDbType.VarChar).Value   = (object) prov.ClaveProv ?? DBNull.Value;
                 cmd.Parameters.Add("@proveedor",    FbDbType.Integer).Value   = prov.ProveedorId;
                 cmd.Parameters.Add("@folioProv",    FbDbType.VarChar).Value   = folioCompra ?? "";

@@ -23,7 +23,7 @@ namespace PortalProveedoresEscritorio.Formularios
         private System.Windows.Forms.Label       lbl_FolioFac;
         private System.Windows.Forms.TextBox     txtFolioFac;
         private System.Windows.Forms.Label       lbl_FechaFac;
-        private System.Windows.Forms.TextBox     txtFechaFac1;
+        private System.Windows.Forms.DateTimePicker dtpFechaFac1;
         private System.Windows.Forms.Label       lbl_Atraso;
         private System.Windows.Forms.TextBox     txtAtraso;
         private System.Windows.Forms.Label       lbl_FechaSubio;
@@ -101,7 +101,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lbl_FolioFac          = new System.Windows.Forms.Label();
             this.txtFolioFac           = new System.Windows.Forms.TextBox();
             this.lbl_FechaFac          = new System.Windows.Forms.Label();
-            this.txtFechaFac1          = new System.Windows.Forms.TextBox();
+            this.dtpFechaFac1          = new System.Windows.Forms.DateTimePicker();
             this.lbl_Atraso            = new System.Windows.Forms.Label();
             this.txtAtraso             = new System.Windows.Forms.TextBox();
             this.lbl_FechaSubio        = new System.Windows.Forms.Label();
@@ -242,7 +242,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec1Card.Controls.Add(this.sec1Titulo);
             this.sec1Card.Controls.Add(this.lbl_NombreProv); this.sec1Card.Controls.Add(this.txtProveedor);
             this.sec1Card.Controls.Add(this.lbl_FolioFac);   this.sec1Card.Controls.Add(this.txtFolioFac);
-            this.sec1Card.Controls.Add(this.lbl_FechaFac);   this.sec1Card.Controls.Add(this.txtFechaFac1);
+            this.sec1Card.Controls.Add(this.lbl_FechaFac);   this.sec1Card.Controls.Add(this.dtpFechaFac1);
             this.sec1Card.Controls.Add(this.lbl_Atraso);     this.sec1Card.Controls.Add(this.txtAtraso);
             this.sec1Card.Controls.Add(this.lbl_FechaSubio); this.sec1Card.Controls.Add(this.txtFechaSubio);
             this.sec1Card.Controls.Add(this.lbl_Sugerida);   this.sec1Card.Controls.Add(this.txtSugerida);
@@ -297,14 +297,10 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lbl_FechaFac.ForeColor = System.Drawing.Color.FromArgb(100, 116, 139);
             this.lbl_FechaFac.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lbl_FechaFac.Text      = "Fecha de la factura";
-            this.txtFechaFac1.Location    = new System.Drawing.Point(180, 104);
-            this.txtFechaFac1.Size        = new System.Drawing.Size(300, 25);
-            this.txtFechaFac1.Font        = new System.Drawing.Font("Segoe UI", 9F);
-            this.txtFechaFac1.ForeColor   = System.Drawing.Color.FromArgb(15, 23, 42);
-            this.txtFechaFac1.BackColor   = System.Drawing.Color.FromArgb(248, 250, 252);
-            this.txtFechaFac1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.txtFechaFac1.ReadOnly    = true;
-            this.txtFechaFac1.Text        = "";
+            this.dtpFechaFac1.Location = new System.Drawing.Point(180, 104);
+            this.dtpFechaFac1.Size     = new System.Drawing.Size(300, 25);
+            this.dtpFechaFac1.Font      = new System.Drawing.Font("Segoe UI", 9F);
+            this.dtpFechaFac1.Format    = System.Windows.Forms.DateTimePickerFormat.Short;
 
             // --- Atraso (Dias) ---
             this.lbl_Atraso.Location  = new System.Drawing.Point(20, 140);
