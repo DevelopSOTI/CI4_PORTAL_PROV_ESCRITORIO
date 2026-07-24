@@ -1586,10 +1586,16 @@ namespace PortalProveedoresCore.Repositorios
             int nuevoDoctoCmId, RecepcionOrigen origen, FacturaAplicar factura,
             string folioFinal, string folioCompra, DateTime? fechaCompra, CancellationToken ct)
         {
-            const string sql =
+            // FOLIO_PROV_AUX solo existe en versiones recientes de Microsip: se escribe
+            // únicamente si la columna está presente, para no romper esquemas anteriores.
+            bool tieneFolioProvAux = await TieneColumnaAsync(con, tx, "DOCTOS_CM", "FOLIO_PROV_AUX", ct).ConfigureAwait(false);
+            string colFolioProvAux = tieneFolioProvAux ? ", FOLIO_PROV_AUX" : "";
+            string valFolioProvAux = tieneFolioProvAux ? ", @folioProvAux"  : "";
+
+            string sql =
                 "INSERT INTO DOCTOS_CM (" +
                 "  DOCTO_CM_ID, TIPO_DOCTO, SUBTIPO_DOCTO, SUCURSAL_ID, FOLIO, FECHA, CLAVE_PROV, " +
-                "  PROVEEDOR_ID, FOLIO_PROV, FACTURA_DEV, ALMACEN_ID, MONEDA_ID, TIPO_CAMBIO, " +
+                "  PROVEEDOR_ID, FOLIO_PROV" + colFolioProvAux + ", FACTURA_DEV, ALMACEN_ID, MONEDA_ID, TIPO_CAMBIO, " +
                 "  TIPO_DSCTO, DSCTO_PCTJE, DSCTO_IMPORTE, ESTATUS, APLICADO, DESCRIPCION, " +
                 "  IMPORTE_NETO, FLETES, OTROS_CARGOS, TOTAL_IMPUESTOS, TOTAL_RETENCIONES, " +
                 "  GASTOS_ADUANALES, OTROS_GASTOS, FORMA_EMITIDA, CONTABILIZADO, " +
@@ -1597,7 +1603,7 @@ namespace PortalProveedoresCore.Repositorios
                 "  TIENE_CFD, USUARIO_CREADOR, USUARIO_AUT_CREACION, USUARIO_ULT_MODIF, USUARIO_AUT_MODIF" +
                 ") VALUES (" +
                 "  @docto, 'C', @subtipo, @sucursal, @folio, @fecha, @claveProv, " +
-                "  @proveedor, @folioProv, '', @almacen, @moneda, @tipoCambio, " +
+                "  @proveedor, @folioProv" + valFolioProvAux + ", '', @almacen, @moneda, @tipoCambio, " +
                 "  @tipoDscto, @dsctoPctje, @dsctoImporte, 'N', 'S', @descripcion, " +
                 "  @importeNeto, @fletes, @otrosCargos, @totalImp, @totalRet, " +
                 "  @gastosAd, @otrosGastos, 'N', 'N', " +
@@ -1615,6 +1621,8 @@ namespace PortalProveedoresCore.Repositorios
                 cmd.Parameters.Add("@claveProv",    FbDbType.VarChar).Value   = (object) origen.ClaveProv ?? DBNull.Value;
                 cmd.Parameters.Add("@proveedor",    FbDbType.Integer).Value   = origen.ProveedorId;
                 cmd.Parameters.Add("@folioProv",    FbDbType.VarChar).Value   = folioCompra ?? "";
+                if (tieneFolioProvAux)
+                    cmd.Parameters.Add("@folioProvAux", FbDbType.VarChar).Value = FolioProvAux(folioCompra ?? "");
                 cmd.Parameters.Add("@almacen",      FbDbType.Integer).Value   = origen.AlmacenId;
                 cmd.Parameters.Add("@moneda",       FbDbType.Integer).Value   = origen.MonedaId;
                 cmd.Parameters.Add("@tipoCambio",   FbDbType.Double).Value    = (double) origen.TipoCambio;
@@ -2184,6 +2192,52 @@ namespace PortalProveedoresCore.Repositorios
             return DateTime.Now;
         }
 
+        /// <summary>
+        /// Devuelve el folio del proveedor SIN los ceros de relleno que sí lleva FOLIO_PROV.
+        /// FOLIO_PROV se guarda relleno a 9 posiciones (serie + ceros + número), p.ej. "SFI002839";
+        /// FOLIO_PROV_AUX debe llevar el mismo folio pero sin esos ceros: "SFI2839".
+        /// Separa la parte no numérica (serie) de la numérica (folio) y le quita los ceros a la
+        /// izquierda, igual criterio que el relleno del SOAP (serie = no dígitos, folio = dígitos).
+        /// </summary>
+        private static string FolioProvAux(string folioProv)
+        {
+            if (string.IsNullOrEmpty(folioProv)) return folioProv ?? "";
+
+            var serie  = new System.Text.StringBuilder();
+            var numero = new System.Text.StringBuilder();
+            foreach (char c in folioProv)
+            {
+                if (c >= '0' && c <= '9') numero.Append(c);
+                else                      serie.Append(c);
+            }
+
+            string numeroSinCeros = numero.ToString().TrimStart('0');
+            // Si el número era todo ceros, conservamos un "0" para no perderlo.
+            if (numeroSinCeros.Length == 0 && numero.Length > 0) numeroSinCeros = "0";
+
+            return serie.ToString() + numeroSinCeros;
+        }
+
+        /// <summary>
+        /// Indica si una tabla tiene una columna determinada (consulta el catálogo de Firebird).
+        /// Se usa para escribir columnas que solo existen en versiones recientes de Microsip
+        /// (p.ej. DOCTOS_CM.FOLIO_PROV_AUX) sin romper las bases con esquema anterior.
+        /// </summary>
+        private static async Task<bool> TieneColumnaAsync(
+            FbConnection con, FbTransaction tx, string tabla, string columna, CancellationToken ct)
+        {
+            const string sql =
+                "SELECT 1 FROM RDB$RELATION_FIELDS " +
+                "WHERE RDB$RELATION_NAME = @tabla AND RDB$FIELD_NAME = @columna";
+            using (var cmd = new FbCommand(sql, con, tx))
+            {
+                cmd.Parameters.Add("@tabla",   FbDbType.VarChar).Value = tabla;
+                cmd.Parameters.Add("@columna", FbDbType.VarChar).Value = columna;
+                var raw = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+                return raw != null && raw != DBNull.Value;
+            }
+        }
+
         // ================================================================
         // DTOs internos (solo para esta clase)
         // ================================================================
@@ -2417,10 +2471,16 @@ namespace PortalProveedoresCore.Repositorios
             DateTime? fechaCompra,
             CancellationToken ct)
         {
-            const string sql =
+            // FOLIO_PROV_AUX solo existe en versiones recientes de Microsip: se escribe
+            // únicamente si la columna está presente, para no romper esquemas anteriores.
+            bool tieneFolioProvAux = await TieneColumnaAsync(con, tx, "DOCTOS_CM", "FOLIO_PROV_AUX", ct).ConfigureAwait(false);
+            string colFolioProvAux = tieneFolioProvAux ? ", FOLIO_PROV_AUX" : "";
+            string valFolioProvAux = tieneFolioProvAux ? ", @folioProvAux"  : "";
+
+            string sql =
                 "INSERT INTO DOCTOS_CM (" +
                 "  DOCTO_CM_ID, TIPO_DOCTO, SUBTIPO_DOCTO, SUCURSAL_ID, FOLIO, FECHA, CLAVE_PROV, " +
-                "  PROVEEDOR_ID, FOLIO_PROV, FACTURA_DEV, ALMACEN_ID, MONEDA_ID, TIPO_CAMBIO, " +
+                "  PROVEEDOR_ID, FOLIO_PROV" + colFolioProvAux + ", FACTURA_DEV, ALMACEN_ID, MONEDA_ID, TIPO_CAMBIO, " +
                 "  TIPO_DSCTO, DSCTO_PCTJE, DSCTO_IMPORTE, ESTATUS, APLICADO, DESCRIPCION, " +
                 "  IMPORTE_NETO, FLETES, OTROS_CARGOS, TOTAL_IMPUESTOS, TOTAL_RETENCIONES, " +
                 "  GASTOS_ADUANALES, OTROS_GASTOS, FORMA_EMITIDA, CONTABILIZADO, ACREDITAR_CXP, " +
@@ -2428,7 +2488,7 @@ namespace PortalProveedoresCore.Repositorios
                 "  USUARIO_CREADOR, USUARIO_AUT_CREACION, USUARIO_ULT_MODIF, USUARIO_AUT_MODIF" +
                 ") VALUES (" +
                 "  @docto, 'C', 'N', @sucursal, @folio, @fecha, @claveProv, " +
-                "  @proveedor, @folioProv, '', @almacen, @moneda, @tipoCambio, " +
+                "  @proveedor, @folioProv" + valFolioProvAux + ", '', @almacen, @moneda, @tipoCambio, " +
                 "  'I', @dsctoPctje, @dsctoImporte, 'N', 'S', @descripcion, " +
                 "  @importeNeto, 0, 0, @totalImp, @totalRet, " +
                 "  0, 0, 'N', 'N', 'N', " +
@@ -2458,6 +2518,8 @@ namespace PortalProveedoresCore.Repositorios
                 cmd.Parameters.Add("@claveProv",    FbDbType.VarChar).Value   = (object) prov.ClaveProv ?? DBNull.Value;
                 cmd.Parameters.Add("@proveedor",    FbDbType.Integer).Value   = prov.ProveedorId;
                 cmd.Parameters.Add("@folioProv",    FbDbType.VarChar).Value   = folioCompra ?? "";
+                if (tieneFolioProvAux)
+                    cmd.Parameters.Add("@folioProvAux", FbDbType.VarChar).Value = FolioProvAux(folioCompra ?? "");
                 cmd.Parameters.Add("@almacen",      FbDbType.Integer).Value   = almacenId;
                 cmd.Parameters.Add("@moneda",       FbDbType.Integer).Value   = monedaId;
                 cmd.Parameters.Add("@tipoCambio",   FbDbType.Double).Value    = (double) factura.TIPO_CAMBIO;
