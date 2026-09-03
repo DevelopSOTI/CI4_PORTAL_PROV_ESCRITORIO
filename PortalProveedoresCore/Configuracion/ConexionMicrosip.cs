@@ -68,7 +68,7 @@ namespace PortalProveedoresCore.Configuracion
                 reg = new RegistrosWindows();
                 reg.LeerRegistros("SOFTWARE\\SOTI\\Service Portal");
                 conectionString = @"User=" + reg.MICRO_USER + "; Password=" + reg.MICRO_PASS
-                        + "; Database=" + reg.MICRO_ROOT + "\\" + db + ".FDB"
+                        + "; Database=" + RutaEmpresa(reg.MICRO_ROOT, db)
                         + "; Datasource=" + reg.MICRO_SERVER + "; Dialect=3" + "; Charset=ISO8859_1";
 
                 fbc = new FbConnection(conectionString);
@@ -114,7 +114,7 @@ namespace PortalProveedoresCore.Configuracion
                 reg = new RegistrosWindows();
                 reg.LeerRegistros("SOFTWARE\\SOTI\\Service Portal");
                 conectionString = @"User=" + reg.MICRO_USER + "; Password=" + reg.MICRO_PASS
-                        + "; Database=" + reg.MICRO_ROOT + "\\" + "System" + "\\" + "CONFIG" + ".FDB"
+                        + "; Database=" + RutaConfig(reg.MICRO_ROOT)
                         + "; Datasource=" + reg.MICRO_SERVER + "; Dialect=3" + "; Charset=ISO8859_1";
 
                 fbc = new FbConnection(conectionString);
@@ -141,7 +141,7 @@ namespace PortalProveedoresCore.Configuracion
                 {
                     conectionString = @"User= " + usuario + ";";
                     conectionString += "Password=" + pass + ";";
-                    conectionString += "Database=" + ruta + "\\System\\Config.FDB" + ";";
+                    conectionString += "Database=" + RutaConfig(ruta) + ";";
                     conectionString += "Datasource=" + servidor + ";";
                     conectionString += "Dialect=3;";
                     conectionString += "Charset=ISO8859_1;";
@@ -188,7 +188,7 @@ namespace PortalProveedoresCore.Configuracion
             {
                 conectionString = "User=" + usuario + ";"
                                 + "Password=" + pass + ";"
-                                + "Database=" + root + @"\System\CONFIG.FDB;"
+                                + "Database=" + RutaConfig(root) + ";"
                                 + "Datasource=" + servidor + ";"
                                 + "Dialect=3;"
                                 + "Charset=ISO8859_1;";
@@ -202,6 +202,41 @@ namespace PortalProveedoresCore.Configuracion
                 mensaje = ex.Message;
                 return false;
             }
+        }
+
+        // ================================================================
+        //  Construcción de la ruta de la BD Firebird — portable Windows/Linux
+        // ----------------------------------------------------------------
+        //  El servidor Firebird en Linux distingue mayúsculas/minúsculas y
+        //  usa '/' como separador (backslash '\' se toma como carácter
+        //  literal y rompe la ruta). Firebird en Windows también acepta '/'.
+        //  Por eso normalizamos SIEMPRE a '/' y a extensión .fdb en minúscula.
+        //  Formato tomado del SOAP legacy (C_ConexionFirebird.cs), que ya
+        //  conectaba a Microsip en Linux:
+        //     config  → "<root>/System/Config.fdb"   (carpeta "System",
+        //                archivo "Config.fdb": C mayúscula, .fdb minúscula)
+        //     empresa → "<root>/<NOMBRE_CORTO>.fdb"
+        // ================================================================
+
+        /// <summary>
+        /// Normaliza la raíz: pasa los '\' a '/' y quita la '/' final, para
+        /// poder concatenar "/..." sin duplicar ni mezclar separadores.
+        /// </summary>
+        private static string RaizNormalizada(string root)
+        {
+            return (root ?? "").Replace('\\', '/').TrimEnd('/');
+        }
+
+        /// <summary>Ruta de la BD de configuración de Microsip: &lt;root&gt;/System/Config.fdb</summary>
+        private static string RutaConfig(string root)
+        {
+            return RaizNormalizada(root) + "/System/Config.fdb";
+        }
+
+        /// <summary>Ruta de la BD de una empresa: &lt;root&gt;/&lt;nombreCorto&gt;.fdb</summary>
+        private static string RutaEmpresa(string root, string nombreCorto)
+        {
+            return RaizNormalizada(root) + "/" + nombreCorto + ".fdb";
         }
     }
 }
