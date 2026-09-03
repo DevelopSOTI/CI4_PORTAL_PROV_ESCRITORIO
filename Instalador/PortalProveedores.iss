@@ -43,7 +43,11 @@
 #define RegKeyPath       "SOFTWARE\SOTI\Service Portal"
 
 ; Raiz de los binarios ya compilados en Release.
-#define BinRoot          "C:\Users\MartinHC\Documents\Visual Studio 2022\Projects\SOTI\CI4_PORTAL_PROV_ESCRITORIO"
+; Se calcula relativo a la ubicacion de este .iss (carpeta \Instalador), que esta
+; justo al lado de las carpetas de proyecto. Asi compila en cualquier maquina/usuario
+; sin tener que editar la ruta. Los proyectos estan un nivel arriba:
+;   ...\PortalProveedoresService\<Proyecto>\bin\Release
+#define BinRoot          AddBackslash(SourcePath) + ".."
 #define CoreBin          BinRoot + "\PortalProveedoresCore\bin\Release"
 #define ConfigBin        BinRoot + "\PortalProveedoresConfigurador\bin\Release"
 #define VisorBin         BinRoot + "\PortalProveedoresVisor\bin\Release"
@@ -96,8 +100,6 @@ Name: "service";      Description: "Servicio Windows (sincronizacion)";        T
 ; --- Core compartido (SIEMPRE) ---
 Source: "{#CoreBin}\PortalProveedoresCore.dll";              DestDir: "{app}"; Flags: ignoreversion; Components: core
 Source: "{#CoreBin}\FirebirdSql.Data.FirebirdClient.dll";    DestDir: "{app}"; Flags: ignoreversion; Components: core
-Source: "{#CoreBin}\System.Runtime.CompilerServices.Unsafe.dll";    DestDir: "{app}"; Flags: ignoreversion; Components: core
-Source: "{#CoreBin}\System.Threading.Tasks.Extensions.dll";    DestDir: "{app}"; Flags: ignoreversion; Components: core
 
 ; --- Configurador ---
 Source: "{#ConfigBin}\PortalProveedoresConfigurador.exe";        DestDir: "{app}"; Flags: ignoreversion; Components: configurador
@@ -127,8 +129,6 @@ Source: "{#ServiceBin}\PortalProveedoresService.exe.config"; DestDir: "{app}"; F
 Source: "{#ConfigBin}\PortalProveedoresConfigurador.exe";     DestDir: "{tmp}"; Flags: dontcopy
 Source: "{#ConfigBin}\PortalProveedoresCore.dll";             DestDir: "{tmp}"; Flags: dontcopy
 Source: "{#ConfigBin}\FirebirdSql.Data.FirebirdClient.dll";   DestDir: "{tmp}"; Flags: dontcopy
-Source: "{#ConfigBin}\System.Runtime.CompilerServices.Unsafe.dll";   DestDir: "{tmp}"; Flags: dontcopy
-Source: "{#ConfigBin}\System.Threading.Tasks.Extensions.dll";   DestDir: "{tmp}"; Flags: dontcopy
 
 [Icons]
 ; Accesos directos en el menu inicio.
@@ -273,8 +273,6 @@ begin
   ExtractTemporaryFile('PortalProveedoresConfigurador.exe');
   ExtractTemporaryFile('PortalProveedoresCore.dll');
   ExtractTemporaryFile('FirebirdSql.Data.FirebirdClient.dll');
-  ExtractTemporaryFile('System.Runtime.CompilerServices.Unsafe.dll');
-  ExtractTemporaryFile('System.Threading.Tasks.Extensions.dll');
 end;
 
 // Cita un argumento para la linea de comandos Windows (CreateProcess).

@@ -997,14 +997,17 @@ namespace PortalProveedoresEscritorio.Vistas
                 }
             }
 
-            await DescargarCfdiAsync(uuid, "F", rutaDestino).ConfigureAwait(true);
+            int doctoId = GetCellInt(row, "DOCTO_CM_ID");
+            await DescargarCfdiAsync(uuid, "F", rutaDestino, doctoId).ConfigureAwait(true);
         }
 
         /// <summary>
-        /// Baja PDF y XML del CFDI vía REST y los escribe a la carpeta dada.
-        /// Réplica funcional de F_FACTURAS.GuardarArchivos del SOAP.
+        /// Baja PDF, XML y los archivos adjuntos del CFDI vía REST y los escribe a
+        /// la carpeta dada. Réplica funcional de F_FACTURAS.GuardarArchivos del SOAP
+        /// más los adjuntos extra del portal — los mismos que se ven en la pestaña
+        /// "Adjuntos" de FormAplicarFactura.
         /// </summary>
-        private async Task DescargarCfdiAsync(string uuid, string tipo, string carpeta)
+        private async Task DescargarCfdiAsync(string uuid, string tipo, string carpeta, int doctoId)
         {
             int guardados = 0;
 
@@ -1029,6 +1032,41 @@ namespace PortalProveedoresEscritorio.Vistas
                     guardados++;
                 }
 
+                // Adjuntos extra del portal (PDFs, órdenes de compra, imágenes):
+                // los mismos que lista la pestaña "Adjuntos" de FormAplicarFactura.
+                // Se guardan con su nombre original en la misma carpeta. Va en su
+                // propio try para no tapar el éxito del PDF/XML si el listado falla.
+                if (doctoId > 0)
+                {
+                    try
+                    {
+                        var adjuntos = await _api.ListarAdjuntosAsync(doctoId, _empresa.Id, tipo, ct)
+                            .ConfigureAwait(true);
+                        if (adjuntos != null)
+                        {
+                            foreach (var a in adjuntos)
+                            {
+                                var binario = await _api.DescargarAdjuntoAsync(a.id, ct).ConfigureAwait(true);
+                                if (binario == null || binario.Length == 0) continue;
+
+                                var nombre = string.IsNullOrEmpty(a.nombre_original)
+                                    ? a.nombre_archivo
+                                    : a.nombre_original;
+                                if (string.IsNullOrEmpty(nombre)) nombre = "adjunto_" + a.id;
+
+                                var destino = RutaSinColision(carpeta, LimpiarNombreArchivo(nombre));
+                                File.WriteAllBytes(destino, binario);
+                                guardados++;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Silencioso — si falla el listado/descarga de adjuntos,
+                        // igual conservamos lo que sí se guardó (PDF/XML).
+                    }
+                }
+
                 if (guardados == 0)
                 {
                     MessageBox.Show("No hay archivos disponibles para este UUID en el portal.",
@@ -1045,6 +1083,38 @@ namespace PortalProveedoresEscritorio.Vistas
                 MessageBox.Show(ex.Message, "Error al guardar archivos",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        /// <summary>
+        /// Quita de un nombre de archivo los caracteres inválidos para el sistema
+        /// de archivos, para poder guardar el adjunto con su nombre real.
+        /// </summary>
+        private static string LimpiarNombreArchivo(string nombre)
+        {
+            if (string.IsNullOrEmpty(nombre)) return "adjunto";
+            foreach (var c in Path.GetInvalidFileNameChars())
+                nombre = nombre.Replace(c, '_');
+            return nombre;
+        }
+
+        /// <summary>
+        /// Devuelve una ruta libre en la carpeta: si ya existe un archivo con ese
+        /// nombre, agrega " (2)", " (3)"… para no sobrescribir (dos adjuntos con el
+        /// mismo nombre, o una descarga repetida).
+        /// </summary>
+        private static string RutaSinColision(string carpeta, string nombreArchivo)
+        {
+            var destino = Path.Combine(carpeta, nombreArchivo);
+            if (!File.Exists(destino)) return destino;
+
+            var baseNombre = Path.GetFileNameWithoutExtension(nombreArchivo);
+            var ext        = Path.GetExtension(nombreArchivo);
+            for (int i = 2; i < 1000; i++)
+            {
+                var candidato = Path.Combine(carpeta, baseNombre + " (" + i + ")" + ext);
+                if (!File.Exists(candidato)) return candidato;
+            }
+            return destino; // fallback improbable
         }
 
         private async void accion_RechazarConCorreo(object sender, EventArgs e)
