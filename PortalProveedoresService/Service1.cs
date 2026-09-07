@@ -68,7 +68,15 @@ namespace PortalProveedoresService
             InitializeComponent();
         }
 
-        protected override void OnStart(string[] args)  { IniciarCiclo(); }
+        protected override void OnStart(string[] args)
+        {
+            // Migra a cifrado cualquier secreto que el instalador haya dejado en
+            // texto plano. LocalSystem tiene permisos de escritura en HKLM, así
+            // que aquí la migración es confiable. Best-effort: nunca bloquea el
+            // arranque del servicio.
+            try { new RegistrosWindows().MigrarSecretosACifrado(); } catch { }
+            IniciarCiclo();
+        }
         protected override void OnStop()                 { DetenerCiclo(); }
 
         /// <summary>

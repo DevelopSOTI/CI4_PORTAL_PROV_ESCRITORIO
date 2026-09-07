@@ -96,6 +96,49 @@ namespace PortalProveedoresEscritorio.Servicios
         }
 
         /// <summary>
+        /// Lista las SERIES de folios de COMPRAS de Microsip de la empresa,
+        /// para el combo de serie del F_APLICAR_FACTURA. Réplica de la consulta
+        /// del SOAP nuevo (F_APLICAR_FACTURA.cs:1722-1723):
+        /// <code>SELECT SERIE FROM folios_compras WHERE TIPO_DOCTO = 'C' ORDER BY SERIE</code>
+        /// Devuelve los <c>SERIE</c> (string, trimmeados) — el folio interno de
+        /// Microsip se arma como SERIE + consecutivo. TIPO_DOCTO='C' = compras
+        /// (no ventas ni otros doctos). Best-effort: sin conexión devuelve vacío.
+        /// </summary>
+        public async Task<string[]> ListarSeriesFoliosComprasAsync(
+            string nombreEmpresa, CancellationToken ct)
+        {
+            var lista = new List<string>();
+            if (string.IsNullOrEmpty(nombreEmpresa)) return lista.ToArray();
+
+            try
+            {
+                var con = new ConexionMicrosip();
+                if (!con.ConectarMicrosip(nombreEmpresa)) return lista.ToArray();
+                try
+                {
+                    const string sql =
+                        "SELECT SERIE FROM FOLIOS_COMPRAS " +
+                        " WHERE TIPO_DOCTO = 'C' ORDER BY SERIE";
+                    using (var cmd = new FbCommand(sql, con.FBC))
+                    using (var rd  = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
+                    {
+                        while (await rd.ReadAsync(ct).ConfigureAwait(false))
+                        {
+                            var serie = (Convert.ToString(rd["SERIE"]) ?? "").Trim();
+                            if (serie.Length > 0) lista.Add(serie);
+                        }
+                    }
+                }
+                finally { con.Desconectar(); }
+            }
+            catch
+            {
+                // Best-effort — sin conexión la UI muestra un placeholder.
+            }
+            return lista.ToArray();
+        }
+
+        /// <summary>
         /// Busca artículos NO almacenables (los "generales" usados para
         /// aplicar facturas del portal). Si <paramref name="filtro"/> está
         /// vacío, devuelve toda la lista (limitada). Réplica del SOAP

@@ -55,6 +55,12 @@ namespace PortalProveedoresConfigurador
             // queda con sus defaults y el form muestra "Modo offline".
             PrecargarTema();
 
+            // Migra a cifrado cualquier secreto que el instalador haya dejado en
+            // texto plano. El Configurador corre elevado (requireAdministrator),
+            // así que aquí la migración es confiable — cubre instalaciones cliente
+            // que no tienen el Servicio. Best-effort: nunca bloquea la apertura.
+            try { new PortalProveedoresCore.Configuracion.RegistrosWindows().MigrarSecretosACifrado(); } catch { }
+
             Application.Run(new FormPrincipal());
             return 0;
         }

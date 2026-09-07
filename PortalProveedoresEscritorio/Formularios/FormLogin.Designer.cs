@@ -164,7 +164,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.panelInputPassword.Location = new System.Drawing.Point(32, 304);
             this.panelInputPassword.Name = "panelInputPassword";
             this.panelInputPassword.Size = new System.Drawing.Size(376, 48);
-            this.panelInputPassword.TabIndex = 5;
+            this.panelInputPassword.TabIndex = 8;
             // 
             // iconPassword
             // 
@@ -199,7 +199,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.chkRecordar.Location = new System.Drawing.Point(32, 365);
             this.chkRecordar.Name = "chkRecordar";
             this.chkRecordar.Size = new System.Drawing.Size(134, 19);
-            this.chkRecordar.TabIndex = 2;
+            this.chkRecordar.TabIndex = 6;
             this.chkRecordar.Text = "Recordar contraseña";
             this.chkRecordar.UseVisualStyleBackColor = false;
             // 
@@ -228,7 +228,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnAceptar.Location = new System.Drawing.Point(32, 408);
             this.btnAceptar.Name = "btnAceptar";
             this.btnAceptar.Size = new System.Drawing.Size(376, 48);
-            this.btnAceptar.TabIndex = 3;
+            this.btnAceptar.TabIndex = 5;
             this.btnAceptar.Text = "Iniciar sesión";
             this.btnAceptar.UseVisualStyleBackColor = false;
             this.btnAceptar.Click += new System.EventHandler(this.btnAceptar_Click);

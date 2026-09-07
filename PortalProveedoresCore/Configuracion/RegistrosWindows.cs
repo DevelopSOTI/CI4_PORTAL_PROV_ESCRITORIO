@@ -158,6 +158,132 @@ namespace PortalProveedoresCore.Configuracion
         // independiente (por eso es HKLM, no PARAMETROS).
         public string ENVIAR_CORREO_COMPRAS { set; get; }
         #endregion
+
+        #region Cifrado de secretos (DPAPI) — contenido en esta clase
+        // Las credenciales se cifran con DPAPI ámbito LocalMachine ANTES de
+        // escribirse al registro y se descifran AL leerse, sin que ningún otro
+        // módulo cambie: los callers siguen usando las propiedades en claro.
+        //
+        // ¿Por qué LocalMachine y no CurrentUser? El Servicio corre como
+        // LocalSystem y el Configurador/Escritorio como el usuario interactivo;
+        // con CurrentUser el Servicio no podría descifrar lo que guardó el
+        // Configurador. LocalMachine lo puede descifrar cualquier proceso de la
+        // MISMA máquina — justo lo que necesitamos.
+        //
+        // Compatibilidad: los valores viejos guardados en texto plano (sin el
+        // prefijo) se devuelven tal cual y se re-cifran en el próximo guardado.
+
+        // Nombres de valor del registro que contienen secretos y se cifran.
+        private static readonly System.Collections.Generic.HashSet<string> ValoresSensibles =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "MICRO_PASS", "MICRO_PASS1", "MYSQL_PASS",
+                "PASS_SQL", "PASS_MSP", "CORREO_CONTRAS", "PORTAL_API_KEY",
+            };
+
+        // Marca que distingue un valor cifrado por nosotros de un texto plano heredado.
+        private const string DpapiPrefijo = "DPAPI:";
+
+        private static string Proteger(string plano)
+        {
+            if (string.IsNullOrEmpty(plano)) return plano ?? "";
+            try
+            {
+                byte[] datos = System.Text.Encoding.UTF8.GetBytes(plano);
+                byte[] cifr  = System.Security.Cryptography.ProtectedData.Protect(
+                    datos, null, System.Security.Cryptography.DataProtectionScope.LocalMachine);
+                return DpapiPrefijo + Convert.ToBase64String(cifr);
+            }
+            catch
+            {
+                // Si DPAPI fallara, preferimos no perder el dato (peor caso: queda en claro).
+                return plano;
+            }
+        }
+
+        private static string Desproteger(string almacenado)
+        {
+            if (string.IsNullOrEmpty(almacenado)) return almacenado;
+            if (!almacenado.StartsWith(DpapiPrefijo, StringComparison.Ordinal))
+                return almacenado; // texto plano heredado — se re-cifra al próximo guardado
+            try
+            {
+                byte[] cifr  = Convert.FromBase64String(almacenado.Substring(DpapiPrefijo.Length));
+                byte[] datos = System.Security.Cryptography.ProtectedData.Unprotect(
+                    cifr, null, System.Security.Cryptography.DataProtectionScope.LocalMachine);
+                return System.Text.Encoding.UTF8.GetString(datos);
+            }
+            catch
+            {
+                return almacenado; // no se pudo descifrar — devolvemos crudo para no romper del todo
+            }
+        }
+
+        // Escribe un valor cifrándolo SOLO si su nombre está en la lista de sensibles.
+        private static void SetValueSeguro(RegistryKey key, string nombre, string valor)
+        {
+            if (ValoresSensibles.Contains(nombre))
+                key.SetValue(nombre, Proteger(valor ?? ""));
+            else
+                key.SetValue(nombre, valor);
+        }
+
+        // Lee un valor descifrándolo SOLO si su nombre está en la lista de sensibles.
+        private static string LeerSeguro(RegistryKey key, string nombre)
+        {
+            string crudo = (string)key.GetValue(nombre);
+            return ValoresSensibles.Contains(nombre) ? Desproteger(crudo) : crudo;
+        }
+
+        /// <summary>
+        /// Migración transparente: si algún secreto en HKLM está en TEXTO PLANO
+        /// (p. ej. lo escribió el instalador), lo re-escribe CIFRADO con DPAPI la
+        /// primera vez que una app lo detecta — sin re-guardado manual.
+        ///
+        /// Best-effort e idempotente:
+        ///  - Los que ya tienen el prefijo "DPAPI:" se saltan (nada que hacer).
+        ///  - Si no hay permisos de escritura en HKLM (Escritorio como usuario
+        ///    estándar), NO hace nada y el fallback de LeerSeguro mantiene todo
+        ///    funcionando; se migrará cuando lo lea un proceso con permisos
+        ///    (Servicio como LocalSystem, o el Configurador elevado).
+        ///
+        /// Conviene llamarlo una vez al arranque de Servicio, Escritorio y
+        /// Configurador. Devuelve cuántos valores cifró (0 = nada por migrar o
+        /// sin permisos de escritura).
+        /// </summary>
+        public int MigrarSecretosACifrado()
+        {
+            int migrados = 0;
+            try
+            {
+                RegistryKey baseKey = SO64bits()
+                    ? RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64)
+                    : RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
+
+                using (baseKey)
+                using (var key = baseKey.OpenSubKey(ruta_registros, true)) // writable → lanza si no hay permisos
+                {
+                    if (key == null) return 0;
+
+                    foreach (var nombre in ValoresSensibles)
+                    {
+                        try
+                        {
+                            var crudo = key.GetValue(nombre) as string;
+                            if (string.IsNullOrEmpty(crudo)) continue;                 // no está
+                            if (crudo.StartsWith(DpapiPrefijo, StringComparison.Ordinal)) continue; // ya cifrado
+                            key.SetValue(nombre, Proteger(crudo));                     // texto plano → cifrar
+                            migrados++;
+                        }
+                        catch { /* un valor no se pudo migrar; seguimos con los demás */ }
+                    }
+                }
+            }
+            catch { /* sin permisos de escritura o llave inexistente: no-op, el fallback cubre */ }
+            return migrados;
+        }
+        #endregion
+
         public bool SO64bits()
         {
             bool bits;
@@ -222,27 +348,27 @@ namespace PortalProveedoresCore.Configuracion
 
                     //REGISTROS MYSQL
                     MYSQL_DATA = (string)rk2.GetValue("MYSQL_DATA");
-                    MYSQL_PASS = (string)rk2.GetValue("MYSQL_PASS");
+                    MYSQL_PASS = LeerSeguro(rk2, "MYSQL_PASS");
                     MYSQL_PORT = (string)rk2.GetValue("MYSQL_PORT");
                     MYSQL_SERV = (string)rk2.GetValue("MYSQL_SERV");
                     MYSQL_USER = (string)rk2.GetValue("MYSQL_USER");
 
                     //REGISTROS MSSQL
                     SQL_USUARIO = (string)rk2.GetValue("USU_SQL");
-                    SQL_PASSWORD = (string)rk2.GetValue("PASS_SQL");
+                    SQL_PASSWORD = LeerSeguro(rk2, "PASS_SQL");
                     SQL_SERVIDOR = (string)rk2.GetValue("SERV_SQL");
                     SQL_BD = (string)rk2.GetValue("BD_SQL");
                     //RUTASERVER= (string)rk2.GetValue("SERVIDOR_RUTA");
 
                     //REGSITROS MICROSIP
                     MICRO_USER = (string)rk2.GetValue("MICRO_USER");
-                    MICRO_PASS = (string)rk2.GetValue("MICRO_PASS");
+                    MICRO_PASS = LeerSeguro(rk2, "MICRO_PASS");
                     MICRO_SERVER = (string)rk2.GetValue("MICRO_SERV");
                     MICRO_ROOT = (string)rk2.GetValue("MICRO_ROOT");
                     MICRO_BD = (string)rk2.GetValue("MICRO_BD");
                     //MICRO_OC = (string)rk2.GetValue("MICRO_OC");
                     MICRO_USER1 = (string)rk2.GetValue("MICRO_USER1");
-                    MICRO_PASS1 = (string)rk2.GetValue("MICRO_PASS1");
+                    MICRO_PASS1 = LeerSeguro(rk2, "MICRO_PASS1");
 
                     //REGISTROS ARCHIVOS ADJUNTOS
                     DIR_ARCHIVOS = (string)rk2.GetValue("DIR_ARCH_ADJ");
@@ -253,7 +379,7 @@ namespace PortalProveedoresCore.Configuracion
                     CORREO_PUERTO_SMTP = (string)rk2.GetValue("CORREO_PUERTO_SMTP");
                     CORREO_SMTP_MAIL = (string)rk2.GetValue("CORREO_SMTP_MAIL");
                     CORREO_DIRECCION = (string)rk2.GetValue("CORREO_DIRECCION");
-                    CORREO_CONTRAS = (string)rk2.GetValue("CORREO_CONTRAS");
+                    CORREO_CONTRAS = LeerSeguro(rk2, "CORREO_CONTRAS");
                     CORREO_DESTIN_DIRECCION = (string)rk2.GetValue("CORREO_DESTIN_DIRECCION");
                     CORREO_DESTIN_GRANELES = (string)rk2.GetValue("CORREO_DESTIN_GRANELES");
 
@@ -263,7 +389,7 @@ namespace PortalProveedoresCore.Configuracion
 
                     //REGISTROS DEL PORTAL CI4
                     PORTAL_BASE_URL = (string)rk2.GetValue("PORTAL_BASE_URL");
-                    PORTAL_API_KEY  = (string)rk2.GetValue("PORTAL_API_KEY");
+                    PORTAL_API_KEY  = LeerSeguro(rk2, "PORTAL_API_KEY");
                     //REGISTROS DE LA APLICACION
                     MAILS_SEND = (string)rk2.GetValue("MAILS_SEND");
                     MODE_TIMER = (string)rk2.GetValue("MODE_TIMER");
@@ -324,13 +450,13 @@ namespace PortalProveedoresCore.Configuracion
             {
                 rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
                 rk2 = rk1.OpenSubKey(ruta_registro, true);
-                rk2.SetValue("PASS_SQL", pass_bd);
+                rk2.SetValue("PASS_SQL", Proteger(pass_bd));
             }
             else
             {
                 rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
                 rk2 = rk1.OpenSubKey(ruta_registro, true);
-                rk2.SetValue("PASS_SQL", pass_bd);
+                rk2.SetValue("PASS_SQL", Proteger(pass_bd));
             }
         }
         public void EscribirRegistro_Pass_bd_M(string ruta_registro, string pass_bd)
@@ -340,13 +466,13 @@ namespace PortalProveedoresCore.Configuracion
             {
                 rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
                 rk2 = rk1.OpenSubKey(ruta_registro, true);
-                rk2.SetValue("PASS_MSP", pass_bd);
+                rk2.SetValue("PASS_MSP", Proteger(pass_bd));
             }
             else
             {
                 rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
                 rk2 = rk1.OpenSubKey(ruta_registro, true);
-                rk2.SetValue("PASS_MSP", pass_bd);
+                rk2.SetValue("PASS_MSP", Proteger(pass_bd));
             }
         }
         public void EscribirRegistro_Nombre_bd(string ruta_registro, string nombre_bd)
@@ -530,13 +656,13 @@ namespace PortalProveedoresCore.Configuracion
                 {
                     /*rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
                     rk2 = rk1.OpenSubKey(ruta_registros, true);
-                    rk2.SetValue(nombre_registro, valor_registro);*/
+                    SetValueSeguro(rk2, nombre_registro, valor_registro);*/
                     using (var root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64))
                     {
                         using (var key = root.OpenSubKey(ruta_registros, true))
                         {
                             //var registeredOwner = key.GetValue("RegisteredOwner");
-                            key.SetValue(nombre_registro, valor_registro);
+                            SetValueSeguro(key, nombre_registro, valor_registro);
                             _exito = true;
                         };
                     };
@@ -547,7 +673,7 @@ namespace PortalProveedoresCore.Configuracion
                     {
                         rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
                         rk2 = rk1.OpenSubKey(ruta_registros, true);
-                        rk2.SetValue(nombre_registro, valor_registro);
+                        SetValueSeguro(rk2, nombre_registro, valor_registro);
                         _exito = true;
                     }
                 }
@@ -568,8 +694,9 @@ namespace PortalProveedoresCore.Configuracion
             {
                 // Crea la llave HKLM vacía. Los valores (credenciales, URL del portal,
                 // API key, etc.) los escribe el Helper elevado o la UI tras pedírselos al
-                // operador; las contraseñas se cifran con DPAPI antes de guardarse.
-                // No se persisten defaults inseguros aquí.
+                // operador; las contraseñas se cifran con DPAPI (LocalMachine) en esta
+                // misma clase al escribirse y se descifran al leerse (ver región
+                // "Cifrado de secretos"). No se persisten defaults inseguros aquí.
                 rk2 = rk1.CreateSubKey(ruta_registro);
                 Microsoft.Win32.Registry.LocalMachine.CreateSubKey(ruta_registro);
                 _exito = true;
@@ -618,27 +745,27 @@ namespace PortalProveedoresCore.Configuracion
                 {
                     //REGISTROS MYSQL
                     MYSQL_DATA = (string)rk2.GetValue("MYSQL_DATA");
-                    MYSQL_PASS = (string)rk2.GetValue("MYSQL_PASS");
+                    MYSQL_PASS = LeerSeguro(rk2, "MYSQL_PASS");
                     MYSQL_PORT = (string)rk2.GetValue("MYSQL_PORT");
                     MYSQL_SERV = (string)rk2.GetValue("MYSQL_SERV");
                     MYSQL_USER = (string)rk2.GetValue("MYSQL_USER");
 
                     //REGISTROS MSSQL
                     SQL_USUARIO = (string)rk2.GetValue("USU_SQL");
-                    SQL_PASSWORD = (string)rk2.GetValue("PASS_SQL");
+                    SQL_PASSWORD = LeerSeguro(rk2, "PASS_SQL");
                     SQL_SERVIDOR = (string)rk2.GetValue("SERV_SQL");
                     SQL_BD = (string)rk2.GetValue("BD_SQL");
                     //RUTASERVER= (string)rk2.GetValue("SERVIDOR_RUTA");
 
                     //REGSITROS MICROSIP
                     MICRO_USER = (string)rk2.GetValue("MICRO_USER");
-                    MICRO_PASS = (string)rk2.GetValue("MICRO_PASS");
+                    MICRO_PASS = LeerSeguro(rk2, "MICRO_PASS");
                     MICRO_SERVER = (string)rk2.GetValue("MICRO_SERV");
                     MICRO_ROOT = (string)rk2.GetValue("MICRO_ROOT");
                     MICRO_BD = (string)rk2.GetValue("MICRO_BD");
                     //MICRO_OC = (string)rk2.GetValue("MICRO_OC");
                     MICRO_USER1 = (string)rk2.GetValue("MICRO_USER1");
-                    MICRO_PASS1 = (string)rk2.GetValue("MICRO_PASS1");
+                    MICRO_PASS1 = LeerSeguro(rk2, "MICRO_PASS1");
 
                     //REGISTROS ARCHIVOS ADJUNTOS
                     DIR_ARCHIVOS = (string)rk2.GetValue("DIR_ARCH_ADJ");
@@ -649,7 +776,7 @@ namespace PortalProveedoresCore.Configuracion
                     CORREO_PUERTO_SMTP = (string)rk2.GetValue("CORREO_PUERTO_SMTP");
                     CORREO_SMTP_MAIL = (string)rk2.GetValue("CORREO_SMTP_MAIL");
                     CORREO_DIRECCION = (string)rk2.GetValue("CORREO_DIRECCION");
-                    CORREO_CONTRAS = (string)rk2.GetValue("CORREO_CONTRAS");
+                    CORREO_CONTRAS = LeerSeguro(rk2, "CORREO_CONTRAS");
                     CORREO_DESTIN_DIRECCION = (string)rk2.GetValue("CORREO_DESTIN_DIRECCION");
                     CORREO_DESTIN_GRANELES = (string)rk2.GetValue("CORREO_DESTIN_GRANELES");
 
@@ -659,7 +786,7 @@ namespace PortalProveedoresCore.Configuracion
 
                     //REGISTROS DEL PORTAL CI4
                     PORTAL_BASE_URL = (string)rk2.GetValue("PORTAL_BASE_URL");
-                    PORTAL_API_KEY  = (string)rk2.GetValue("PORTAL_API_KEY");
+                    PORTAL_API_KEY  = LeerSeguro(rk2, "PORTAL_API_KEY");
                     //REGISTROS DE LA APLICACION
                     MAILS_SEND = (string)rk2.GetValue("MAILS_SEND");
                     MODE_TIMER = (string)rk2.GetValue("MODE_TIMER");
@@ -730,7 +857,7 @@ namespace PortalProveedoresCore.Configuracion
                     //rk1 = Registry.LocalMachine.OpenSubKey("Software", true);
                     rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
                     rk2 = rk1.OpenSubKey(ruta_registros, true);
-                    rk2.SetValue(nombre_registro, valor_registro);
+                    SetValueSeguro(rk2, nombre_registro, valor_registro);
                 }
                 else
                 {
@@ -739,7 +866,7 @@ namespace PortalProveedoresCore.Configuracion
                         //rk1 = Registry.LocalMachine.OpenSubKey("Software", true);
                         rk1 = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32);
                         rk2 = rk1.OpenSubKey(ruta_registros, true);
-                        rk2.SetValue(nombre_registro, valor_registro);
+                        SetValueSeguro(rk2, nombre_registro, valor_registro);
                     }
                 }
             }

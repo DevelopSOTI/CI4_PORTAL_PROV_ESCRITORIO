@@ -252,6 +252,9 @@ namespace PortalProveedoresEscritorio.Formularios
 
             // Habilitamos los combos y el botón de búsqueda — se llenan al
             // hacer Shown (carga asíncrona desde Firebird de la empresa).
+            this.cbSerie.Items.Clear();
+            this.cbSerie.Items.Add("Cargando…");
+            this.cbSerie.SelectedIndex = 0;
             this.cbCondiciones.Items.Clear();
             this.cbCondiciones.Items.Add("Cargando…");
             this.cbCondiciones.SelectedIndex = 0;
@@ -297,6 +300,48 @@ namespace PortalProveedoresEscritorio.Formularios
             }
         }
 
+        /// <summary>
+        /// Llena el combo de SERIE de folios de compras desde Firebird de la
+        /// empresa (FOLIOS_COMPRAS, TIPO_DOCTO='C'). Réplica del SOAP nuevo
+        /// (F_APLICAR_FACTURA.cs:1721-1744). Preselección: "WEB" si existe, si
+        /// no la primera de la lista.
+        ///
+        /// Nota: el SOAP además recuerda la última serie usada en el registro
+        /// de Windows (ULTIMA_SERIE_COMPRA). Aquí se omite por ahora porque ese
+        /// almacén es por-usuario/por-máquina y el Escritorio nuevo es
+        /// multi-empresa; si se quiere, se persistiría por-empresa aparte.
+        /// </summary>
+        private async Task CargarSeriesAsync()
+        {
+            try
+            {
+                var series = await _catalogos
+                    .ListarSeriesFoliosComprasAsync(_empresa.NombreCorto, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                this.cbSerie.Items.Clear();
+                if (series.Length == 0)
+                {
+                    this.cbSerie.Items.Add("(sin series)");
+                    this.cbSerie.SelectedIndex = 0;
+                    this.cbSerie.Enabled = false;
+                    return;
+                }
+                foreach (var s in series) this.cbSerie.Items.Add(s);
+                this.cbSerie.Enabled = true;
+
+                int idx = this.cbSerie.Items.IndexOf("WEB");
+                this.cbSerie.SelectedIndex = idx >= 0 ? idx : 0;
+            }
+            catch
+            {
+                this.cbSerie.Items.Clear();
+                this.cbSerie.Items.Add("(error al leer)");
+                this.cbSerie.SelectedIndex = 0;
+                this.cbSerie.Enabled = false;
+            }
+        }
+
         private void BtnBuscarArticulo_Click(object sender, EventArgs e)
         {
             using (var dlg = new FormBusquedaArticulo(_empresa.NombreCorto))
@@ -326,7 +371,8 @@ namespace PortalProveedoresEscritorio.Formularios
                 CargarXmlAsync(ct),
                 CargarPdfAsync(ct),
                 CargarAdjuntosAsync(ct),
-                CargarCondicionesPagoAsync()
+                CargarCondicionesPagoAsync(),
+                CargarSeriesAsync()
             ).ConfigureAwait(true);
         }
 
@@ -639,6 +685,17 @@ namespace PortalProveedoresEscritorio.Formularios
             // SOAP necesita para crear la línea genérica de DOCTOS_CM_DET.
             string articulo      = ExtraerNombreArticulo();
             string condicionPago = ExtraerNombreCondicion();
+            string serie         = ExtraerNombreSerie();
+
+            // La serie es obligatoria SIEMPRE (con y sin recepción): es el
+            // prefijo del folio interno de Microsip. Réplica del SOAP nuevo
+            // (F_APLICAR_FACTURA.cs:1943).
+            if (string.IsNullOrEmpty(serie))
+            {
+                MostrarEstado("Selecciona la serie con la que se registrará la compra en Microsip.",
+                              EstadoTipo.Error);
+                return;
+            }
 
             if (_factura.RECEP_ID == 0)
             {
@@ -676,7 +733,7 @@ namespace PortalProveedoresEscritorio.Formularios
             {
                 r = await Task.Run(
                     () => _aplicador.AplicarAsync(
-                        _empresa, _factura, articulo, condicionPago,
+                        _empresa, _factura, articulo, condicionPago, serie,
                         _usuarioMicrosip, fechaCompra, progreso, _cts.Token),
                     _cts.Token);
             }
@@ -1093,6 +1150,15 @@ namespace PortalProveedoresEscritorio.Formularios
             var cp = item as CondicionPagoMicrosip;
             if (cp != null) return cp.Nombre ?? "";
             return "";
+        }
+
+        private string ExtraerNombreSerie()
+        {
+            // Enabled=false cubre los placeholders "Cargando…"/"(sin series)"/
+            // "(error al leer)": en esos casos no hay serie válida elegible.
+            if (!this.cbSerie.Enabled) return "";
+            var item = this.cbSerie.SelectedItem as string;
+            return (item ?? "").Trim();
         }
 
         private static string LimpiarParaNombreArchivo(string s)

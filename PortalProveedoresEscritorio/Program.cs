@@ -35,6 +35,12 @@ namespace PortalProveedoresEscritorio
                 e.SetObserved();
             };
 
+            // Migra a cifrado cualquier secreto que el instalador haya dejado
+            // en texto plano. Best-effort: si el usuario no es admin no podrá
+            // escribir HKLM y no hace nada (el fallback de lectura mantiene todo
+            // funcionando; el Servicio/Configurador lo migrarán con permisos).
+            try { new RegistrosWindows().MigrarSecretosACifrado(); } catch { }
+
             // Cargar tema del portal: paleta + nombre + logo del cliente.
             // Si HKLM no tiene URL/API key o el portal está offline, deja
             // los defaults (azul Tailwind). La UI se construye después.

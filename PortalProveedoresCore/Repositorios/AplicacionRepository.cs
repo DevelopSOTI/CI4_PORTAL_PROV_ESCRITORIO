@@ -41,6 +41,7 @@ namespace PortalProveedoresCore.Repositorios
             Func<int, string, Task<bool>> marcarPortalAsync,
             Func<int, string, Task<bool>> sincronizarPortalYaAplicadaAsync,
             DateTime? fechaCompra,
+            string serie,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -67,7 +68,7 @@ namespace PortalProveedoresCore.Repositorios
 
                 // Bloques 1-11: misma lógica que el dry-run.
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, fechaCompra, ct
+                    con.FBC, tx, factura, cfdi, fechaCompra, serie, ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque       = ejecucion.UltimoBloque;
@@ -219,6 +220,7 @@ namespace PortalProveedoresCore.Repositorios
             CfdiXmlMicrosip cfdi, AdjuntoDescargado[] adjuntos,
             Func<int, string, Task<bool>> marcarPortalAsync,
             DateTime? fechaCompra,
+            string serie,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -332,13 +334,13 @@ namespace PortalProveedoresCore.Repositorios
                     }
                 }
 
-                // === BLOQUE 6: SIGUIENTE_FOLIO('WEB') ============================
+                // === BLOQUE 6: SIGUIENTE_FOLIO(serie elegida) ===================
                 resultado.ultimoBloque = 6;
-                var folioFinal = await SiguienteFolioWebAsync(con.FBC, tx, ct).ConfigureAwait(false);
+                var folioFinal = await SiguienteFolioAsync(serie, con.FBC, tx, ct).ConfigureAwait(false);
                 if (string.IsNullOrEmpty(folioFinal))
                 {
                     resultado.tipo    = ResultadoAplicacionTipo.SerieWebNoConfigurada;
-                    resultado.mensaje = "La serie 'WEB' no está registrada en FOLIOS_COMPRAS.";
+                    resultado.mensaje = "La serie '" + (serie ?? "") + "' no está registrada en FOLIOS_COMPRAS (compras) de esta empresa.";
                     return resultado;
                 }
                 resultado.folioFinalGenerado = folioFinal;
@@ -1161,8 +1163,10 @@ namespace PortalProveedoresCore.Repositorios
             {
                 tx = con.FBC.BeginTransaction(IsolationLevel.ReadCommitted);
 
+                // Dry-run (preview): rollbackea siempre, así que la serie no se
+                // consume. Usamos "WEB" solo para que el bloque de folio corra.
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, null, ct
+                    con.FBC, tx, factura, cfdi, null, "WEB", ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque        = ejecucion.UltimoBloque;
@@ -1212,7 +1216,7 @@ namespace PortalProveedoresCore.Repositorios
         /// </summary>
         private static async Task<EjecucionBloques> EjecutarBloques1A11Async(
             FbConnection con, FbTransaction tx,
-            FacturaAplicar factura, CfdiXmlMicrosip cfdi, DateTime? fechaCompra, CancellationToken ct)
+            FacturaAplicar factura, CfdiXmlMicrosip cfdi, DateTime? fechaCompra, string serie, CancellationToken ct)
         {
             var e = new EjecucionBloques();
 
@@ -1292,13 +1296,13 @@ namespace PortalProveedoresCore.Repositorios
                 }
             }
 
-            // === BLOQUE 3: SIGUIENTE_FOLIO('WEB') ==============================
+            // === BLOQUE 3: SIGUIENTE_FOLIO(serie elegida) =====================
             e.UltimoBloque = 3;
-            var folioFinal = await SiguienteFolioWebAsync(con, tx, ct).ConfigureAwait(false);
+            var folioFinal = await SiguienteFolioAsync(serie, con, tx, ct).ConfigureAwait(false);
             if (string.IsNullOrEmpty(folioFinal))
             {
                 e.Tipo    = ResultadoAplicacionTipo.SerieWebNoConfigurada;
-                e.Mensaje = "La serie 'WEB' no está registrada en FOLIOS_COMPRAS de esta empresa.";
+                e.Mensaje = "La serie '" + (serie ?? "") + "' no está registrada en FOLIOS_COMPRAS (compras) de esta empresa.";
                 return e;
             }
             e.FolioFinal = folioFinal;
@@ -1514,19 +1518,34 @@ namespace PortalProveedoresCore.Repositorios
         // ================================================================
 
         /// <summary>
-        /// Réplica de <c>SIGUIENTE_FOLIO('WEB')</c> de Func.pas:329-362.
-        /// Lee CONSECUTIVO de FOLIOS_COMPRAS, lo incrementa, hace UPDATE, y
-        /// devuelve "WEB" + pad-left 6 (ej. "WEB000123"). Si no existe la
-        /// serie 'WEB' devuelve null.
+        /// Réplica de <c>SIGUIENTE_FOLIO(serie)</c> de Func.pas:329-362 y del
+        /// SOAP nuevo (C_FUNCIONES.SIGUIENTE_FOLIO). Lee CONSECUTIVO de
+        /// FOLIOS_COMPRAS para la SERIE dada (compras, TIPO_DOCTO='C'), lo
+        /// incrementa, hace UPDATE y devuelve SERIE + pad-left 6 (ej.
+        /// "SFI000123").
+        ///
+        /// IMPORTANTE — divergencia consciente vs el SOAP nuevo: si la serie NO
+        /// existe en FOLIOS_COMPRAS devolvemos <c>null</c> (el SELECT no trae
+        /// fila) y el llamador aborta con SerieNoConfigurada. El SOAP nuevo
+        /// tiene un guard equivalente pero es CÓDIGO MUERTO (su SIGUIENTE_FOLIO
+        /// hace vint++ incondicional y nunca devuelve "serie+000000"), por lo
+        /// que una serie inexistente allá pasa, hace UPDATE de 0 filas y genera
+        /// FOLIOS DUPLICADOS. Aquí NO replicamos ese bug: el null-check protege
+        /// la integridad. Filtramos además por TIPO_DOCTO='C' igual que las tres
+        /// consultas del SOAP, para no cruzar series de otros tipos de docto.
         /// </summary>
-        private static async Task<string> SiguienteFolioWebAsync(
-            FbConnection con, FbTransaction tx, CancellationToken ct)
+        private static async Task<string> SiguienteFolioAsync(
+            string serie, FbConnection con, FbTransaction tx, CancellationToken ct)
         {
+            if (string.IsNullOrWhiteSpace(serie)) return null;
+            serie = serie.Trim();
+
             int consecutivo;
             using (var cmd = new FbCommand(
-                "SELECT CONSECUTIVO FROM FOLIOS_COMPRAS WHERE SERIE = 'WEB'",
+                "SELECT CONSECUTIVO FROM FOLIOS_COMPRAS WHERE SERIE = @serie AND TIPO_DOCTO = 'C'",
                 con, tx))
             {
+                cmd.Parameters.Add("@serie", FbDbType.VarChar).Value = serie;
                 var raw = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
                 if (raw == null || raw == DBNull.Value) return null;
                 consecutivo = Convert.ToInt32(raw);
@@ -1535,14 +1554,15 @@ namespace PortalProveedoresCore.Repositorios
             consecutivo++;
 
             using (var cmd = new FbCommand(
-                "UPDATE FOLIOS_COMPRAS SET CONSECUTIVO = @c WHERE SERIE = 'WEB'",
+                "UPDATE FOLIOS_COMPRAS SET CONSECUTIVO = @c WHERE SERIE = @serie AND TIPO_DOCTO = 'C'",
                 con, tx))
             {
-                cmd.Parameters.Add("@c", FbDbType.Integer).Value = consecutivo;
+                cmd.Parameters.Add("@c",     FbDbType.Integer).Value = consecutivo;
+                cmd.Parameters.Add("@serie", FbDbType.VarChar).Value = serie;
                 await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
             }
 
-            return "WEB" + consecutivo.ToString("D6");
+            return serie + consecutivo.ToString("D6");
         }
 
         // ================================================================

@@ -82,6 +82,7 @@ namespace PortalProveedoresCore.Repositorios
             System.Func<int, string, System.Threading.Tasks.Task<bool>> marcarPortalAsync,
             System.Func<int, string, System.Threading.Tasks.Task<bool>> sincronizarPortalYaAplicadaAsync,
             System.DateTime? fechaCompra,
+            string serie,
             CancellationToken ct);
 
         /// <summary>
@@ -113,6 +114,7 @@ namespace PortalProveedoresCore.Repositorios
             AdjuntoDescargado[] adjuntos,
             System.Func<int, string, System.Threading.Tasks.Task<bool>> marcarPortalAsync,
             System.DateTime? fechaCompra,
+            string serie,
             CancellationToken ct);
 
         /// <summary>

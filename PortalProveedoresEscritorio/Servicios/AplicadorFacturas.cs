@@ -57,6 +57,7 @@ namespace PortalProveedoresEscritorio.Servicios
             FacturaPendienteEscritorio facturaUi,
             string                     articuloNoAlmacenable,
             string                     condicionPago,
+            string                     serie,
             string                     usuarioMicrosip,
             DateTime                   fechaCompra,
             IProgress<string>          progreso,
@@ -64,6 +65,12 @@ namespace PortalProveedoresEscritorio.Servicios
         {
             if (empresa   == null) throw new ArgumentNullException(nameof(empresa));
             if (facturaUi == null) throw new ArgumentNullException(nameof(facturaUi));
+
+            // La serie del folio de compras (FOLIOS_COMPRAS) es obligatoria en
+            // ambos flujos: es el prefijo del folio interno de Microsip. Réplica
+            // de la validación del SOAP nuevo (F_APLICAR_FACTURA.cs:1943).
+            if (string.IsNullOrWhiteSpace(serie))
+                return Error(1, "Debe seleccionar la serie con la que se registrará la compra en Microsip.");
 
             Reportar(progreso, "Buscando datos completos de la factura…");
 
@@ -248,14 +255,14 @@ namespace PortalProveedoresEscritorio.Servicios
             {
                 resultado = await _repo.AplicarFacturaSinRecepcionAsync(
                     empresa.NombreCorto, fa, articuloNoAlmacenable, condicionPago,
-                    cfdi, adjuntos.ToArray(), marcarPortalSinRecepcion, fechaCompra, ct
+                    cfdi, adjuntos.ToArray(), marcarPortalSinRecepcion, fechaCompra, serie, ct
                 ).ConfigureAwait(false);
             }
             else
             {
                 resultado = await _repo.AplicarFacturaAsync(
                     empresa.NombreCorto, fa, cfdi, adjuntos.ToArray(),
-                    marcarPortal, sincronizarPortalYaAplicada, fechaCompra, ct
+                    marcarPortal, sincronizarPortalYaAplicada, fechaCompra, serie, ct
                 ).ConfigureAwait(false);
             }
 
