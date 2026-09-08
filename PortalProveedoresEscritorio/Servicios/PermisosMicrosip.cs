@@ -58,11 +58,22 @@ namespace PortalProveedoresEscritorio.Servicios
 
                 try
                 {
+                    // El permiso puede venir DIRECTO del usuario (DERECHOS_USUARIOS
+                    // por USUARIO_ID) o de su ROL. En Microsip el rol es OTRO
+                    // registro de USUARIOS al que apunta u.ROL_ID, y sus derechos
+                    // viven en DERECHOS_USUARIOS de ese rol. El permiso aplica si
+                    // CUALQUIERA de los dos tiene la CLAVE_OBJETO. Réplica de la
+                    // versión nueva del SOAP (C_PERMISOS_MICROSIP.cs). Antes solo
+                    // checábamos los derechos directos, así que los usuarios que
+                    // heredaban el permiso por un rol quedaban marcados "sin permiso".
                     const string sql =
-                        "SELECT 1 FROM DERECHOS_USUARIOS d " +
-                        "  JOIN USUARIOS u ON u.USUARIO_ID = d.USUARIO_ID " +
+                        "SELECT 1 " +
+                        "  FROM USUARIOS u " +
+                        "  LEFT JOIN DERECHOS_USUARIOS d  ON (u.USUARIO_ID = d.USUARIO_ID) " +
+                        "  LEFT JOIN USUARIOS r           ON (u.ROL_ID    = r.USUARIO_ID) " +
+                        "  LEFT JOIN DERECHOS_USUARIOS dr ON (r.USUARIO_ID = dr.USUARIO_ID) " +
                         " WHERE u.NOMBRE = @user AND u.ESTATUS = 'A' " +
-                        "   AND d.CLAVE_OBJETO = @clave";
+                        "   AND (d.CLAVE_OBJETO = @clave OR dr.CLAVE_OBJETO = @clave)";
                     using (var cmd = new FbCommand(sql, con.FBC))
                     {
                         cmd.Parameters.Add("@user",  FbDbType.VarChar).Value = usuario;

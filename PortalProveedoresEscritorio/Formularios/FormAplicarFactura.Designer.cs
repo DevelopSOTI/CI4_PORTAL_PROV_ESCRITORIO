@@ -171,7 +171,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.panelTitleBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTitleBar.Location = new System.Drawing.Point(0, 0);
             this.panelTitleBar.Name = "panelTitleBar";
-            this.panelTitleBar.Size = new System.Drawing.Size(1220, 44);
+            this.panelTitleBar.Size = new System.Drawing.Size(1235, 44);
             this.panelTitleBar.TabIndex = 3;
             // 
             // lblTitulo
@@ -180,7 +180,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lblTitulo.ForeColor = System.Drawing.Color.White;
             this.lblTitulo.Location = new System.Drawing.Point(16, 0);
             this.lblTitulo.Name = "lblTitulo";
-            this.lblTitulo.Size = new System.Drawing.Size(1100, 44);
+            this.lblTitulo.Size = new System.Drawing.Size(950, 44);
             this.lblTitulo.TabIndex = 0;
             this.lblTitulo.Text = "Aplicación de la factura al módulo de compras y cuentas por cobrar";
             this.lblTitulo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -192,7 +192,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnMinimizar.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMinimizar.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnMinimizar.ForeColor = System.Drawing.Color.White;
-            this.btnMinimizar.Location = new System.Drawing.Point(1112, 0);
+            this.btnMinimizar.Location = new System.Drawing.Point(1127, 0);
             this.btnMinimizar.Name = "btnMinimizar";
             this.btnMinimizar.Size = new System.Drawing.Size(36, 44);
             this.btnMinimizar.TabIndex = 1;
@@ -206,7 +206,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnMaximizar.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnMaximizar.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnMaximizar.ForeColor = System.Drawing.Color.White;
-            this.btnMaximizar.Location = new System.Drawing.Point(1148, 0);
+            this.btnMaximizar.Location = new System.Drawing.Point(1163, 0);
             this.btnMaximizar.Name = "btnMaximizar";
             this.btnMaximizar.Size = new System.Drawing.Size(36, 44);
             this.btnMaximizar.TabIndex = 2;
@@ -220,7 +220,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnCerrar.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCerrar.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.btnCerrar.ForeColor = System.Drawing.Color.White;
-            this.btnCerrar.Location = new System.Drawing.Point(1184, 0);
+            this.btnCerrar.Location = new System.Drawing.Point(1199, 0);
             this.btnCerrar.Name = "btnCerrar";
             this.btnCerrar.Size = new System.Drawing.Size(36, 44);
             this.btnCerrar.TabIndex = 3;
@@ -236,7 +236,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.panelBody.Location = new System.Drawing.Point(0, 44);
             this.panelBody.Name = "panelBody";
             this.panelBody.Padding = new System.Windows.Forms.Padding(16);
-            this.panelBody.Size = new System.Drawing.Size(1220, 592);
+            this.panelBody.Size = new System.Drawing.Size(1235, 592);
             this.panelBody.TabIndex = 0;
             // 
             // sec3Card
@@ -248,7 +248,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3Card.Dock = System.Windows.Forms.DockStyle.Fill;
             this.sec3Card.Location = new System.Drawing.Point(536, 16);
             this.sec3Card.Name = "sec3Card";
-            this.sec3Card.Size = new System.Drawing.Size(668, 560);
+            this.sec3Card.Size = new System.Drawing.Size(683, 560);
             this.sec3Card.TabIndex = 0;
             // 
             // sec3VistaContenedor
@@ -261,7 +261,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3VistaContenedor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.sec3VistaContenedor.Location = new System.Drawing.Point(0, 104);
             this.sec3VistaContenedor.Name = "sec3VistaContenedor";
-            this.sec3VistaContenedor.Size = new System.Drawing.Size(668, 456);
+            this.sec3VistaContenedor.Size = new System.Drawing.Size(683, 456);
             this.sec3VistaContenedor.TabIndex = 0;
             // 
             // dgvAdjuntos
@@ -289,7 +289,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.dgvAdjuntos.RowHeadersVisible = false;
             this.dgvAdjuntos.RowTemplate.Height = 40;
             this.dgvAdjuntos.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.dgvAdjuntos.Size = new System.Drawing.Size(668, 456);
+            this.dgvAdjuntos.Size = new System.Drawing.Size(683, 456);
             this.dgvAdjuntos.TabIndex = 0;
             this.dgvAdjuntos.Visible = false;
             // 
@@ -335,7 +335,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.txtVistaXml.Name = "txtVistaXml";
             this.txtVistaXml.ReadOnly = true;
             this.txtVistaXml.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.txtVistaXml.Size = new System.Drawing.Size(668, 456);
+            this.txtVistaXml.Size = new System.Drawing.Size(683, 456);
             this.txtVistaXml.TabIndex = 1;
             this.txtVistaXml.Visible = false;
             this.txtVistaXml.WordWrap = false;
@@ -348,7 +348,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.webView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.webView.Location = new System.Drawing.Point(0, 0);
             this.webView.Name = "webView";
-            this.webView.Size = new System.Drawing.Size(668, 456);
+            this.webView.Size = new System.Drawing.Size(683, 456);
             this.webView.TabIndex = 2;
             this.webView.Visible = false;
             this.webView.ZoomFactor = 1D;
@@ -360,7 +360,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lblVistaCargando.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
             this.lblVistaCargando.Location = new System.Drawing.Point(0, 0);
             this.lblVistaCargando.Name = "lblVistaCargando";
-            this.lblVistaCargando.Size = new System.Drawing.Size(668, 456);
+            this.lblVistaCargando.Size = new System.Drawing.Size(683, 456);
             this.lblVistaCargando.TabIndex = 3;
             this.lblVistaCargando.Text = "Cargando vista previa…";
             this.lblVistaCargando.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -376,12 +376,11 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3Tabs.Location = new System.Drawing.Point(0, 56);
             this.sec3Tabs.Name = "sec3Tabs";
             this.sec3Tabs.Padding = new System.Windows.Forms.Padding(20, 8, 20, 8);
-            this.sec3Tabs.Size = new System.Drawing.Size(668, 48);
+            this.sec3Tabs.Size = new System.Drawing.Size(683, 48);
             this.sec3Tabs.TabIndex = 1;
             // 
             // btnAbrirExterno
             // 
-            this.btnAbrirExterno.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnAbrirExterno.BackColor = System.Drawing.Color.White;
             this.btnAbrirExterno.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAbrirExterno.Enabled = false;
@@ -389,7 +388,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnAbrirExterno.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAbrirExterno.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.btnAbrirExterno.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(71)))), ((int)(((byte)(85)))), ((int)(((byte)(105)))));
-            this.btnAbrirExterno.Location = new System.Drawing.Point(142, 8);
+            this.btnAbrirExterno.Location = new System.Drawing.Point(416, 9);
             this.btnAbrirExterno.Name = "btnAbrirExterno";
             this.btnAbrirExterno.Size = new System.Drawing.Size(154, 32);
             this.btnAbrirExterno.TabIndex = 0;
@@ -457,7 +456,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3Header.Location = new System.Drawing.Point(0, 0);
             this.sec3Header.Name = "sec3Header";
             this.sec3Header.Padding = new System.Windows.Forms.Padding(20, 12, 20, 4);
-            this.sec3Header.Size = new System.Drawing.Size(668, 56);
+            this.sec3Header.Size = new System.Drawing.Size(683, 56);
             this.sec3Header.TabIndex = 2;
             // 
             // sec3Subtitulo
@@ -467,7 +466,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3Subtitulo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
             this.sec3Subtitulo.Location = new System.Drawing.Point(20, 36);
             this.sec3Subtitulo.Name = "sec3Subtitulo";
-            this.sec3Subtitulo.Size = new System.Drawing.Size(628, 18);
+            this.sec3Subtitulo.Size = new System.Drawing.Size(643, 18);
             this.sec3Subtitulo.TabIndex = 0;
             this.sec3Subtitulo.Text = "Cargando CFDI del portal…";
             // 
@@ -478,7 +477,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec3Titulo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
             this.sec3Titulo.Location = new System.Drawing.Point(20, 12);
             this.sec3Titulo.Name = "sec3Titulo";
-            this.sec3Titulo.Size = new System.Drawing.Size(628, 24);
+            this.sec3Titulo.Size = new System.Drawing.Size(643, 24);
             this.sec3Titulo.TabIndex = 1;
             this.sec3Titulo.Text = "Factura del proveedor";
             // 
@@ -524,9 +523,9 @@ namespace PortalProveedoresEscritorio.Formularios
             this.sec2Titulo.Size = new System.Drawing.Size(400, 22);
             this.sec2Titulo.TabIndex = 0;
             this.sec2Titulo.Text = "Descripción de la compra";
-            //
+            // 
             // lbl_Serie
-            //
+            // 
             this.lbl_Serie.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lbl_Serie.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
             this.lbl_Serie.Location = new System.Drawing.Point(20, 42);
@@ -535,18 +534,18 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lbl_Serie.TabIndex = 20;
             this.lbl_Serie.Text = "Serie del folio";
             this.lbl_Serie.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // cbSerie
-            //
+            // 
             this.cbSerie.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbSerie.Enabled = false;
             this.cbSerie.Location = new System.Drawing.Point(180, 40);
             this.cbSerie.Name = "cbSerie";
             this.cbSerie.Size = new System.Drawing.Size(300, 25);
             this.cbSerie.TabIndex = 21;
-            //
+            // 
             // lbl_Condiciones
-            //
+            // 
             this.lbl_Condiciones.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lbl_Condiciones.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(116)))), ((int)(((byte)(139)))));
             this.lbl_Condiciones.Location = new System.Drawing.Point(20, 74);
@@ -555,9 +554,9 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lbl_Condiciones.TabIndex = 1;
             this.lbl_Condiciones.Text = "Condiciones de pago";
             this.lbl_Condiciones.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // cbCondiciones
-            //
+            // 
             this.cbCondiciones.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cbCondiciones.Enabled = false;
             this.cbCondiciones.Location = new System.Drawing.Point(180, 72);
@@ -849,7 +848,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.panelEstado.Location = new System.Drawing.Point(0, 636);
             this.panelEstado.Name = "panelEstado";
             this.panelEstado.Padding = new System.Windows.Forms.Padding(20, 10, 20, 10);
-            this.panelEstado.Size = new System.Drawing.Size(1220, 56);
+            this.panelEstado.Size = new System.Drawing.Size(1235, 56);
             this.panelEstado.TabIndex = 1;
             // 
             // lblEstado
@@ -859,7 +858,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.lblEstado.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
             this.lblEstado.Location = new System.Drawing.Point(20, 18);
             this.lblEstado.Name = "lblEstado";
-            this.lblEstado.Size = new System.Drawing.Size(1180, 28);
+            this.lblEstado.Size = new System.Drawing.Size(1195, 28);
             this.lblEstado.TabIndex = 0;
             this.lblEstado.Text = "Listo para aplicar.";
             // 
@@ -868,7 +867,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.barProgreso.Dock = System.Windows.Forms.DockStyle.Top;
             this.barProgreso.Location = new System.Drawing.Point(20, 10);
             this.barProgreso.Name = "barProgreso";
-            this.barProgreso.Size = new System.Drawing.Size(1180, 8);
+            this.barProgreso.Size = new System.Drawing.Size(1195, 8);
             this.barProgreso.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.barProgreso.TabIndex = 1;
             this.barProgreso.Visible = false;
@@ -882,7 +881,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.panelBotones.Location = new System.Drawing.Point(0, 692);
             this.panelBotones.Name = "panelBotones";
             this.panelBotones.Padding = new System.Windows.Forms.Padding(20, 14, 20, 14);
-            this.panelBotones.Size = new System.Drawing.Size(1220, 68);
+            this.panelBotones.Size = new System.Drawing.Size(1235, 68);
             this.panelBotones.TabIndex = 2;
             // 
             // btnAplicar
@@ -894,7 +893,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnAplicar.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnAplicar.Font = new System.Drawing.Font("Segoe UI Semibold", 9.5F);
             this.btnAplicar.ForeColor = System.Drawing.Color.White;
-            this.btnAplicar.Location = new System.Drawing.Point(1014, 14);
+            this.btnAplicar.Location = new System.Drawing.Point(1029, 14);
             this.btnAplicar.Name = "btnAplicar";
             this.btnAplicar.Size = new System.Drawing.Size(186, 40);
             this.btnAplicar.TabIndex = 0;
@@ -912,7 +911,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.btnCancelar.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCancelar.Font = new System.Drawing.Font("Segoe UI", 9.5F);
             this.btnCancelar.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(85)))));
-            this.btnCancelar.Location = new System.Drawing.Point(796, 14);
+            this.btnCancelar.Location = new System.Drawing.Point(811, 14);
             this.btnCancelar.Name = "btnCancelar";
             this.btnCancelar.Size = new System.Drawing.Size(212, 40);
             this.btnCancelar.TabIndex = 1;
@@ -927,7 +926,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(245)))), ((int)(((byte)(249)))));
             this.CancelButton = this.btnCancelar;
-            this.ClientSize = new System.Drawing.Size(1220, 760);
+            this.ClientSize = new System.Drawing.Size(1235, 760);
             this.Controls.Add(this.panelBody);
             this.Controls.Add(this.panelEstado);
             this.Controls.Add(this.panelBotones);

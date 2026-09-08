@@ -1062,14 +1062,36 @@ namespace PortalProveedoresEscritorio.Formularios
             return string.IsNullOrEmpty(s) ? "" : s;
         }
 
+        // Las fechas pueden llegar al modal en DOS formatos: ISO crudo del
+        // endpoint (p.ej. FECHA_FACTURA "2026-09-07 12:10:17") o dd/MM/yyyy ya
+        // formateado por el grid (RECIBIDA/FECHA, que el grid arma con
+        // ToString("dd/MM/yyyy")). Hay que parsear con formatos EXPLÍCITOS: con
+        // InvariantCulture, "07/09/2026" se leía como MM/dd = 9 de julio en vez
+        // de 7 de septiembre (día/mes invertidos) — ese era el bug.
+        private static readonly string[] FormatosFecha =
+        {
+            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd",
+            "dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy",
+        };
+
+        private static bool TryParseFecha(string raw, out DateTime d)
+        {
+            d = default(DateTime);
+            if (string.IsNullOrWhiteSpace(raw)) return false;
+            raw = raw.Trim();
+            if (DateTime.TryParseExact(raw, FormatosFecha, CultureInfo.InvariantCulture,
+                                       DateTimeStyles.None, out d))
+                return true;
+            // Fallback tolerante en cultura es-MX (día/mes) para otras variantes.
+            return DateTime.TryParse(raw, new CultureInfo("es-MX"), DateTimeStyles.None, out d);
+        }
+
         private static string FormatearFecha(string raw)
         {
-            if (string.IsNullOrEmpty(raw)) return "";
             DateTime d;
-            if (DateTime.TryParse(raw, CultureInfo.InvariantCulture,
-                                  DateTimeStyles.None, out d))
+            if (TryParseFecha(raw, out d))
                 return d.ToString("dd / MMM / yyyy", new CultureInfo("es-MX"));
-            return raw;
+            return raw ?? "";
         }
 
         /// <summary>Parsea la fecha del CFDI para el DateTimePicker; si no
@@ -1077,10 +1099,7 @@ namespace PortalProveedoresEscritorio.Formularios
         private static DateTime ParsearFechaODefault(string raw)
         {
             DateTime d;
-            if (!string.IsNullOrEmpty(raw) &&
-                DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out d))
-                return d;
-            return DateTime.Today;
+            return TryParseFecha(raw, out d) ? d : DateTime.Today;
         }
 
         private static string FormatearTotal(decimal total, string moneda)
@@ -1091,11 +1110,8 @@ namespace PortalProveedoresEscritorio.Formularios
 
         private static string CalcularAtraso(string fechaPago)
         {
-            if (string.IsNullOrEmpty(fechaPago)) return "0";
             DateTime d;
-            if (!DateTime.TryParse(fechaPago, CultureInfo.InvariantCulture,
-                                   DateTimeStyles.None, out d))
-                return "0";
+            if (!TryParseFecha(fechaPago, out d)) return "0";
             int dias = (int) Math.Floor((DateTime.Today - d.Date).TotalDays);
             return dias > 0 ? dias.ToString(CultureInfo.InvariantCulture) : "0";
         }
