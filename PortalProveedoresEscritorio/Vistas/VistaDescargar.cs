@@ -533,13 +533,24 @@ namespace PortalProveedoresEscritorio.Vistas
                     idx++;
                     string uuid       = (row.Cells["UUID"].Value ?? "").ToString();
                     int    doctoCmId  = ParseInt(row.Cells["DOCTO_CM_ID"].Value);
+                    string proveedor  = (row.Cells["PROVEEDOR_NOMBRE"].Value ?? "").ToString().Trim();
                     if (string.IsNullOrEmpty(uuid)) continue;
 
                     lblContador.Text = "Descargando " + idx + " / " + filas.Count + "…";
 
-                    // Subcarpeta por UUID para no atropellar nombres.
-                    var sub = filas.Count > 1
-                        ? Path.Combine(carpetaRaiz, LimpiarNombre(uuid))
+                    // Réplica EXACTA de F_DESCARGAR del SOAP nuevo (D:):
+                    //  - "Descargar TODO" (XML+PDF+adjuntos juntos) → AGRUPA por
+                    //    cliente: <raíz>/<proveedor>/<uuid>/ (GuardarArchivos CON
+                    //    'proveedor', F_DESCARGAR.cs:673-700 de D:).
+                    //  - "solo XML" / "solo PDF" individuales → SUELTOS en la raíz
+                    //    elegida (GuardarArchivos SIN 'proveedor', :463-610).
+                    // Los adjuntos individuales se agrupan igual que TODO (D: solo
+                    // baja adjuntos dentro de "TODO"; además sus nombres no son
+                    // únicos → agrupar evita que se pisen entre facturas).
+                    bool agrupar = tipoDescarga == TipoDescarga.Todo
+                                || tipoDescarga == TipoDescarga.Adjuntos;
+                    var sub = (agrupar && !string.IsNullOrEmpty(proveedor))
+                        ? Path.Combine(carpetaRaiz, LimpiarNombre(proveedor), LimpiarNombre(uuid))
                         : carpetaRaiz;
                     Directory.CreateDirectory(sub);
 
