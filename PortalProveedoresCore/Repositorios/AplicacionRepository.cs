@@ -1895,7 +1895,11 @@ namespace PortalProveedoresCore.Repositorios
             FacturaAplicar factura, CfdiXmlMicrosip cfdi,
             string folioCompra, string folioXml, CancellationToken ct)
         {
-            // 1) ¿Ya existe?
+            // 1) ¿Ya existe? Leemos primero (cerrando el reader) para poder
+            //    ejecutar el UPDATE de abajo sobre la misma conexión/tx.
+            int    cfdiExistenteId = 0;
+            string xmlExistente    = null;
+            bool   existe          = false;
             using (var cmd = new FbCommand(
                 "SELECT CFDI_ID, XML FROM REPOSITORIO_CFDI WHERE UUID = @uuid",
                 con, tx))
@@ -1905,14 +1909,36 @@ namespace PortalProveedoresCore.Repositorios
                 {
                     if (await rd.ReadAsync(ct).ConfigureAwait(false))
                     {
-                        return new ResultadoCfdi
-                        {
-                            CfdiId       = Convert.ToInt32(rd["CFDI_ID"]),
-                            XmlPreparado = Convert.ToString(rd["XML"]) ?? "",
-                            FueCreado    = false,
-                        };
+                        existe          = true;
+                        cfdiExistenteId = Convert.ToInt32(rd["CFDI_ID"]);
+                        xmlExistente    = Convert.ToString(rd["XML"]) ?? "";
                     }
                 }
+            }
+
+            if (existe)
+            {
+                // El CFDI ya estaba en REPOSITORIO_CFDI (p.ej. Microsip lo
+                // descargó directo o quedó de un ciclo previo). En ese caso su
+                // TIPO_DOCTO_MSP NO es 'Compra' (solo el INSERT de abajo lo pone),
+                // así que hay que CORREGIRLO al ligarlo — si no, la factura queda
+                // en el repositorio con un tipo distinto. Réplica del SOAP nuevo
+                // (F_APLICAR_FACTURA: rama "else" que hace
+                // UPDATE REPOSITORIO_CFDI SET TIPO_DOCTO_MSP='Compra').
+                using (var cmd = new FbCommand(
+                    "UPDATE REPOSITORIO_CFDI SET TIPO_DOCTO_MSP = 'Compra' WHERE CFDI_ID = @id",
+                    con, tx))
+                {
+                    cmd.Parameters.Add("@id", FbDbType.Integer).Value = cfdiExistenteId;
+                    await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+                }
+
+                return new ResultadoCfdi
+                {
+                    CfdiId       = cfdiExistenteId,
+                    XmlPreparado = xmlExistente,
+                    FueCreado    = false,
+                };
             }
 
             // 2) No existe — preparamos el XML y lo insertamos.

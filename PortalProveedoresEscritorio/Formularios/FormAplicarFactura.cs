@@ -252,16 +252,23 @@ namespace PortalProveedoresEscritorio.Formularios
 
             // Habilitamos los combos y el botón de búsqueda — se llenan al
             // hacer Shown (carga asíncrona desde Firebird de la empresa).
+            bool sinRec = _factura.RECEP_ID == 0;
+
             this.cbSerie.Items.Clear();
             this.cbSerie.Items.Add("Cargando…");
             this.cbSerie.SelectedIndex = 0;
             this.cbCondiciones.Items.Clear();
             this.cbCondiciones.Items.Add("Cargando…");
             this.cbCondiciones.SelectedIndex = 0;
+            // Artículo y buscador SOLO aplican sin recepción: con recepción el
+            // detalle (y la condición de pago) se copian de la recepción origen
+            // en Microsip, así que se bloquean. Réplica del SOAP nuevo, que solo
+            // habilita el buscador cuando RECEPCION_ID == 0.
             this.cbArticulo.Items.Clear();
-            this.cbArticulo.Items.Add("(usa el buscador)");
+            this.cbArticulo.Items.Add(sinRec ? "(usa el buscador)" : "(según la recepción)");
             this.cbArticulo.SelectedIndex = 0;
-            this.btnBuscarArticulo.Enabled = true;
+            this.cbArticulo.Enabled        = sinRec;
+            this.btnBuscarArticulo.Enabled = sinRec;
             this.btnBuscarArticulo.Click  += BtnBuscarArticulo_Click;
         }
 
@@ -273,6 +280,20 @@ namespace PortalProveedoresEscritorio.Formularios
 
         private async Task CargarCondicionesPagoAsync()
         {
+            // CON recepción: la condición de pago la fija la recepción en
+            // Microsip (el Core aplica el COND_PAGO_ID de la recepción origen).
+            // Se bloquea el combo para que el operador no crea que puede
+            // cambiarla. Réplica del SOAP nuevo (solo habilita cbCondPago si
+            // RECEPCION_ID == 0).
+            if (_factura.RECEP_ID != 0)
+            {
+                this.cbCondiciones.Items.Clear();
+                this.cbCondiciones.Items.Add("(según la recepción)");
+                this.cbCondiciones.SelectedIndex = 0;
+                this.cbCondiciones.Enabled = false;
+                return;
+            }
+
             try
             {
                 var cond = await _catalogos

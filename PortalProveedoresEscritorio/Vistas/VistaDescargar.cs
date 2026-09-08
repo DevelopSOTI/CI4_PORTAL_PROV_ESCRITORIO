@@ -43,6 +43,8 @@ namespace PortalProveedoresEscritorio.Vistas
         private DateTimePicker dtpHasta;
         private Label          lblLimite;
         private NumericUpDown  numLimite;
+        private Label          lblProveedor;
+        private ComboBox       cbBuscarProveedor;
         private Button         btnConsultar;
         private Button         btnDescargarTodas;
         private Label          lblContador;
@@ -61,7 +63,7 @@ namespace PortalProveedoresEscritorio.Vistas
             _empresa = empresa ?? throw new ArgumentNullException(nameof(empresa));
 
             ConstruirUI();
-            this.Load += async (s, e) => await ConsultarAsync();
+            this.Load += async (s, e) => { await CargarCatalogosAsync(); await ConsultarAsync(); };
         }
 
         private void ConstruirUI()
@@ -73,7 +75,7 @@ namespace PortalProveedoresEscritorio.Vistas
             panelToolbar = new Panel
             {
                 Dock      = DockStyle.Top,
-                Height    = 64,
+                Height    = 104,
                 BackColor = Color.White,
                 Padding   = new Padding(20, 10, 20, 10),
             };
@@ -123,6 +125,21 @@ namespace PortalProveedoresEscritorio.Vistas
                 Location = new Point(442, 18), Size = new Size(70, 25),
                 Minimum  = 1, Maximum = 9999, Value = 100,
             };
+            // 2ª fila: filtro por proveedor — para no descargar TODOS. Combo
+            // vacío = todos los proveedores; elegir uno filtra. Réplica del
+            // filtro de proveedor de F_DESCARGAR del SOAP.
+            lblProveedor = new Label
+            {
+                Location  = new Point(20, 66), Size = new Size(66, 22),
+                Font      = new Font("Segoe UI", 9F),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Text      = "Proveedor",
+            };
+            cbBuscarProveedor = new ComboBox
+            {
+                Location      = new Point(86, 62), Size = new Size(430, 25),
+                DropDownStyle = ComboBoxStyle.DropDown,
+            };
             btnConsultar = new Button
             {
                 Location  = new Point(526, 16), Size = new Size(108, 30),
@@ -164,6 +181,8 @@ namespace PortalProveedoresEscritorio.Vistas
             panelToolbar.Controls.Add(dtpHasta);
             panelToolbar.Controls.Add(lblLimite);
             panelToolbar.Controls.Add(numLimite);
+            panelToolbar.Controls.Add(lblProveedor);
+            panelToolbar.Controls.Add(cbBuscarProveedor);
             panelToolbar.Controls.Add(btnConsultar);
             panelToolbar.Controls.Add(btnDescargarTodas);
             panelToolbar.Controls.Add(lblContador);
@@ -286,6 +305,50 @@ namespace PortalProveedoresEscritorio.Vistas
         // Consulta
         // ====================================================================
 
+        /// <summary>
+        /// Llena el combo de proveedores para poder filtrar la descarga por un
+        /// proveedor (y no traer TODOS). Mismo patrón que VistaFacturas
+        /// (ObtenerCatalogosFiltrosAsync). Combo vacío = todos los proveedores.
+        /// </summary>
+        private async Task CargarCatalogosAsync()
+        {
+            try
+            {
+                bool aplicaDir = false;
+                try { aplicaDir = await _api.ObtenerAplicaDirAsync(CancellationToken.None).ConfigureAwait(true); }
+                catch { /* default false */ }
+
+                var cat = await _api.ObtenerCatalogosFiltrosAsync(
+                    _empresa.Id, aplicaDir, "facturas", CancellationToken.None
+                ).ConfigureAwait(true);
+
+                cbBuscarProveedor.Items.Clear();
+                if (cat != null && cat.proveedores != null)
+                    foreach (var p in cat.proveedores) cbBuscarProveedor.Items.Add(p);
+            }
+            catch
+            {
+                // Silencioso — sin catálogo el combo queda vacío (= todos).
+            }
+        }
+
+        private static int IdSeleccionado(ComboBox cb)
+        {
+            if (cb == null) return 0;
+            var item = cb.SelectedItem as PortalProveedoresCore.Modelos.CatalogoFiltroItem;
+            return item != null ? item.id : 0;
+        }
+
+        private static string TextoLibre(ComboBox cb)
+        {
+            if (cb == null) return "";
+            // Si el texto coincide con el item elegido, usamos el id (no texto libre).
+            if (cb.SelectedItem != null
+                && string.Equals(cb.SelectedItem.ToString(), cb.Text, StringComparison.OrdinalIgnoreCase))
+                return "";
+            return (cb.Text ?? "").Trim();
+        }
+
         private async Task ConsultarAsync()
         {
             btnConsultar.Enabled = false;
@@ -299,6 +362,10 @@ namespace PortalProveedoresEscritorio.Vistas
                     Limit    = (int) numLimite.Value,
                     Desde    = dtpDesde.Value.Date,
                     Hasta    = dtpHasta.Value.Date,
+                    // Filtro por proveedor: id si se eligió del combo, o texto
+                    // libre (LIKE) si el operador tecleó. Vacío = todos.
+                    ProveedorId     = IdSeleccionado(cbBuscarProveedor),
+                    NombreProveedor = TextoLibre(cbBuscarProveedor),
                     // Réplica SelectDescargar (facturas.php:356-410): el tab
                     // Descargar legacy incluía facturas ya aplicadas y
                     // rechazadas — sin este flag solo se verían las ESTATUS='S'.
