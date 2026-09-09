@@ -236,10 +236,23 @@ namespace PortalProveedoresEscritorio.Vistas
             dgv.Columns.Add(Col("RFC",            "RFC",            120, mono: true));
             dgv.Columns.Add(Col("FOLIO_PROV",     "Folio",          100));
             dgv.Columns.Add(Col("FECHA_FACTURA",  "Fecha factura",  110));
+            // Montos — réplica F_DESCARGAR de D: (IMPORTE=subtotal, C_IMPUESTOS,
+            // C_RETENCIONES, C_DESCUENTOS, C_TOTAL). Los datos ya vienen del
+            // endpoint (IMPORTE_NETO, TOTAL_IMPUESTOS, TOTAL_RETENCIONES,
+            // DESCUENTO_GLOBAL, TOTAL) — NO cambia el CI4.
+            dgv.Columns.Add(Col("SUBTOTAL",       "Subtotal",       100));
+            dgv.Columns.Add(Col("IMPUESTOS",      "Impuestos",      100));
+            dgv.Columns.Add(Col("RETENCIONES",    "Retenciones",    100));
+            dgv.Columns.Add(Col("DESCUENTOS",     "Descuentos",     100));
+            dgv.Columns.Add(Col("TOTAL",          "Total",          110));
             dgv.Columns.Add(Col("ESTATUS",        "Estatus",        70));
             // Réplica F_DESCARGAR.cs:170-173 — pólizas leídas de Firebird.
             dgv.Columns.Add(Col("NUM_POLIZA",     "Num. Póliza",    100));
             dgv.Columns.Add(Col("FECHA_POLIZA",   "Fecha Póliza",   110));
+
+            // Montos alineados a la derecha.
+            foreach (var n in new[] { "SUBTOTAL", "IMPUESTOS", "RETENCIONES", "DESCUENTOS", "TOTAL" })
+                dgv.Columns[n].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
 
             // El grid es ReadOnly por default pero la columna checkbox debe
             // permitir click — el resto sigue read-only.
@@ -386,6 +399,9 @@ namespace PortalProveedoresEscritorio.Vistas
                         dgv.Rows.Add(false, f.UUID ?? "", f.DOCTO_CM_ID, f.PROVEEDOR_ID,
                                      f.PROVEEDOR_NOMBRE ?? "", f.RFC ?? "",
                                      f.FOLIO_PROV ?? "", FormatearFecha(f.FECHA_FACTURA),
+                                     Moneda(f.IMPORTE_NETO), Moneda(f.TOTAL_IMPUESTOS),
+                                     Moneda(f.TOTAL_RETENCIONES), Moneda(f.DESCUENTO_GLOBAL),
+                                     Moneda(f.TOTAL),
                                      f.ESTATUS ?? "", "", "");
                         n++;
                     }
@@ -648,6 +664,12 @@ namespace PortalProveedoresEscritorio.Vistas
                                   DateTimeStyles.None, out d))
                 return d.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
             return raw;
+        }
+
+        // Formato de moneda igual que D: ("$" + N2). Réplica F_DESCARGAR.cs:203-207.
+        private static string Moneda(decimal v)
+        {
+            return "$" + v.ToString("N2", CultureInfo.InvariantCulture);
         }
 
         private static string LimpiarNombre(string s)
