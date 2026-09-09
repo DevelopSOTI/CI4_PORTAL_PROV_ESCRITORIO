@@ -293,7 +293,7 @@ namespace PortalProveedoresService.Sincronizacion
                 // la serie histórica "WEB", igual que antes de agregar el combo
                 // del Escritorio. Regla de memoria "APIs compartidas con el Service".
                 var r = await _repo.AplicarFacturaAsync(nombreCorto, f, cfdi, adjuntosDescargados,
-                    marcarPortal, sincronizarPortalYaAplicada, null, "WEB", ct).ConfigureAwait(false);
+                    marcarPortal, sincronizarPortalYaAplicada, null, "WEB", null, ct).ConfigureAwait(false);
 
                 switch (r.tipo)
                 {

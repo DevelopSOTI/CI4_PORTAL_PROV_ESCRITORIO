@@ -1549,14 +1549,50 @@ namespace PortalProveedoresConfigurador.Formularios
 
         private static string EscaparArg(string v)
         {
-            // Los args van por linea de comandos: si contienen espacios, comillas
-            // o &, el shell los rompería. Encerramos con comillas y escapamos
-            // las comillas internas.
-            if (v == null) return "\"\"";
-            var contieneEspecial =
-                v.IndexOfAny(new[] { ' ', '\t', '"', '&', '|', '<', '>' }) >= 0;
-            if (!contieneEspecial) return v;
-            return "\"" + v.Replace("\"", "\\\"") + "\"";
+            // Cita un argumento para la línea de comandos de Windows siguiendo
+            // las reglas de CommandLineToArgvW (lo que usa el CRT del proceso
+            // hijo elevado para re-partir los args).
+            //
+            // PUNTO CLAVE: los backslashes que preceden a una comilla —incluida
+            // la comilla de CIERRE— deben DUPLICARSE. Si no, una ruta que termina
+            // en '\' (p. ej. "C:\Microsip datos\") escapa la comilla de cierre,
+            // los argumentos se FUSIONAN y la tarea elevada recibe menos de los
+            // esperados → "Argumentos faltantes" y no guarda. (Mismo bug que se
+            // corrigió en el instalador con QuoteArg; por eso fallaba solo en
+            // equipos cuya ruta de datos tenía espacio y terminaba en '\'.)
+            if (v == null) v = "";
+
+            // Solo requiere comillas si está vacío o contiene espacio/tab/comilla.
+            bool requiereComillas = v.Length == 0
+                || v.IndexOfAny(new[] { ' ', '\t', '\n', '\v', '"' }) >= 0;
+            if (!requiereComillas) return v;
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append('"');
+            for (int i = 0; ; i++)
+            {
+                int barras = 0;
+                while (i < v.Length && v[i] == '\\') { barras++; i++; }
+                if (i == v.Length)
+                {
+                    // Backslashes al final → duplicarlos (no deben escapar la comilla de cierre).
+                    sb.Append('\\', barras * 2);
+                    break;
+                }
+                if (v[i] == '"')
+                {
+                    // Backslashes antes de una comilla → duplicar y escapar la comilla.
+                    sb.Append('\\', barras * 2 + 1);
+                    sb.Append('"');
+                }
+                else
+                {
+                    sb.Append('\\', barras);
+                    sb.Append(v[i]);
+                }
+            }
+            sb.Append('"');
+            return sb.ToString();
         }
 
         // === Conversión seg ↔ unidad humana ==================================

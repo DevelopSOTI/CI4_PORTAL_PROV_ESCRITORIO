@@ -42,6 +42,7 @@ namespace PortalProveedoresCore.Repositorios
             Func<int, string, Task<bool>> sincronizarPortalYaAplicadaAsync,
             DateTime? fechaCompra,
             string serie,
+            string descripcion,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -68,7 +69,7 @@ namespace PortalProveedoresCore.Repositorios
 
                 // Bloques 1-11: misma lógica que el dry-run.
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, fechaCompra, serie, ct
+                    con.FBC, tx, factura, cfdi, fechaCompra, serie, descripcion, ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque       = ejecucion.UltimoBloque;
@@ -221,6 +222,7 @@ namespace PortalProveedoresCore.Repositorios
             Func<int, string, Task<bool>> marcarPortalAsync,
             DateTime? fechaCompra,
             string serie,
+            string descripcion,
             CancellationToken ct)
         {
             var resultado = new ResultadoAplicacion
@@ -398,7 +400,7 @@ namespace PortalProveedoresCore.Repositorios
                 await InsertarDoctosCmSinRecepcionAsync(
                     con.FBC, tx, nuevoDoctoCmId, sucursalId, folioFinal, factura,
                     prov, factura.ALMACEN_FK_MSP, monedaId, condPagoId,
-                    folioCompra, importeTotal, fechaCompra, ct
+                    folioCompra, importeTotal, fechaCompra, descripcion, ct
                 ).ConfigureAwait(false);
 
                 // === BLOQUE 9: INSERT DOCTOS_CM_DET (1 línea genérica) ===========
@@ -1165,8 +1167,9 @@ namespace PortalProveedoresCore.Repositorios
 
                 // Dry-run (preview): rollbackea siempre, así que la serie no se
                 // consume. Usamos "WEB" solo para que el bloque de folio corra.
+                // descripcion=null → usa la descripción de la recepción (preview).
                 var ejecucion = await EjecutarBloques1A11Async(
-                    con.FBC, tx, factura, cfdi, null, "WEB", ct
+                    con.FBC, tx, factura, cfdi, null, "WEB", null, ct
                 ).ConfigureAwait(false);
 
                 resultado.ultimoBloque        = ejecucion.UltimoBloque;
@@ -1216,7 +1219,7 @@ namespace PortalProveedoresCore.Repositorios
         /// </summary>
         private static async Task<EjecucionBloques> EjecutarBloques1A11Async(
             FbConnection con, FbTransaction tx,
-            FacturaAplicar factura, CfdiXmlMicrosip cfdi, DateTime? fechaCompra, string serie, CancellationToken ct)
+            FacturaAplicar factura, CfdiXmlMicrosip cfdi, DateTime? fechaCompra, string serie, string descripcion, CancellationToken ct)
         {
             var e = new EjecucionBloques();
 
@@ -1325,6 +1328,11 @@ namespace PortalProveedoresCore.Repositorios
             e.UltimoBloque = 4;
             int nuevoDoctoCmId = await GenDoctoIdAsync(con, tx, ct).ConfigureAwait(false);
             e.NuevoDoctoCmId = nuevoDoctoCmId;
+
+            // Respetar la descripción que el operador escribió en el modal (rtDesc);
+            // si viene vacía se conserva la de la recepción origen. Cap a 200
+            // (tamaño de DOCTOS_CM.DESCRIPCION en Microsip). Réplica del SOAP nuevo.
+            recepcionOrigen.Descripcion = DescripcionFinal(descripcion, recepcionOrigen.Descripcion);
 
             await InsertarDoctosCmAsync(
                 con, tx, nuevoDoctoCmId, recepcionOrigen, factura,
@@ -2239,6 +2247,22 @@ namespace PortalProveedoresCore.Repositorios
         }
 
         /// <summary>
+        /// Descripción a guardar en DOCTOS_CM.DESCRIPCION. Si el operador escribió
+        /// algo en el modal (<paramref name="operador"/>) se RESPETA, recortado a
+        /// 200 caracteres (tamaño de la columna DESCRIPCION en Microsip). Si viene
+        /// vacío (p. ej. el Servicio desatendido, que no tiene textbox) se usa el
+        /// <paramref name="fallback"/> (la descripción de la recepción origen o la
+        /// calculada). Réplica del SOAP nuevo (F_APLICAR_FACTURA usa rtDesc.Text si
+        /// no está vacío; si lo está, la de la recepción).
+        /// </summary>
+        private static string DescripcionFinal(string operador, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(operador)) return fallback;
+            var d = operador.Trim();
+            return d.Length > 200 ? d.Substring(0, 200) : d;
+        }
+
+        /// <summary>
         /// Devuelve el folio del proveedor SIN los ceros de relleno que sí lleva FOLIO_PROV.
         /// FOLIO_PROV se guarda relleno a 9 posiciones (serie + ceros + número), p.ej. "SFI002839";
         /// FOLIO_PROV_AUX debe llevar el mismo folio pero sin esos ceros: "SFI2839".
@@ -2515,6 +2539,7 @@ namespace PortalProveedoresCore.Repositorios
             int almacenId, int monedaId, int condPagoId,
             string folioCompra, decimal importeTotal,
             DateTime? fechaCompra,
+            string descripcion,
             CancellationToken ct)
         {
             // FOLIO_PROV_AUX solo existe en versiones recientes de Microsip: se escribe
@@ -2571,10 +2596,11 @@ namespace PortalProveedoresCore.Repositorios
                 cmd.Parameters.Add("@tipoCambio",   FbDbType.Double).Value    = (double) factura.TIPO_CAMBIO;
                 cmd.Parameters.Add("@dsctoPctje",   FbDbType.Double).Value    = (double) dsctoPctje;
                 cmd.Parameters.Add("@dsctoImporte", FbDbType.Double).Value    = (double) dsctoImporte;
-                cmd.Parameters.Add("@descripcion",  FbDbType.VarChar).Value   = "Compra factura "
-                                                                                + (factura.FOLIO_COMPRA ?? "")
-                                                                                + " del proveedor "
-                                                                                + (prov.Nombre ?? "");
+                // Respeta la descripción que el operador escribió (cap 200); si
+                // viene vacía (Servicio desatendido) usa la calculada por defecto.
+                cmd.Parameters.Add("@descripcion",  FbDbType.VarChar).Value   = DescripcionFinal(
+                    descripcion,
+                    "Compra factura " + (factura.FOLIO_COMPRA ?? "") + " del proveedor " + (prov.Nombre ?? ""));
                 cmd.Parameters.Add("@importeNeto",  FbDbType.Double).Value    = (double) importeNetoAprox;
                 cmd.Parameters.Add("@totalImp",     FbDbType.Double).Value    = (double) totalImpAprox;
                 cmd.Parameters.Add("@totalRet",     FbDbType.Double).Value    = (double) factura.TOTAL_RETENCIONES;

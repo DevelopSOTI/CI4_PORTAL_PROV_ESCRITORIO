@@ -58,6 +58,7 @@ namespace PortalProveedoresEscritorio.Servicios
             string                     articuloNoAlmacenable,
             string                     condicionPago,
             string                     serie,
+            string                     descripcion,
             string                     usuarioMicrosip,
             DateTime                   fechaCompra,
             IProgress<string>          progreso,
@@ -255,14 +256,14 @@ namespace PortalProveedoresEscritorio.Servicios
             {
                 resultado = await _repo.AplicarFacturaSinRecepcionAsync(
                     empresa.NombreCorto, fa, articuloNoAlmacenable, condicionPago,
-                    cfdi, adjuntos.ToArray(), marcarPortalSinRecepcion, fechaCompra, serie, ct
+                    cfdi, adjuntos.ToArray(), marcarPortalSinRecepcion, fechaCompra, serie, descripcion, ct
                 ).ConfigureAwait(false);
             }
             else
             {
                 resultado = await _repo.AplicarFacturaAsync(
                     empresa.NombreCorto, fa, cfdi, adjuntos.ToArray(),
-                    marcarPortal, sincronizarPortalYaAplicada, fechaCompra, serie, ct
+                    marcarPortal, sincronizarPortalYaAplicada, fechaCompra, serie, descripcion, ct
                 ).ConfigureAwait(false);
             }
 

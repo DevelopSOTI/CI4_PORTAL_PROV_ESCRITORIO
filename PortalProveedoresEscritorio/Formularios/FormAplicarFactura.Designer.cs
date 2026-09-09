@@ -615,6 +615,7 @@ namespace PortalProveedoresEscritorio.Formularios
             this.rtDesc.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.rtDesc.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.rtDesc.Location = new System.Drawing.Point(180, 138);
+            this.rtDesc.MaxLength = 200;
             this.rtDesc.Multiline = true;
             this.rtDesc.Name = "rtDesc";
             this.rtDesc.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;

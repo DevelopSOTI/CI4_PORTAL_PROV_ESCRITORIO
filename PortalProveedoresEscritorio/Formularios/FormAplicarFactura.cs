@@ -748,13 +748,17 @@ namespace PortalProveedoresEscritorio.Formularios
             // DateTimePicker no puede leerse desde el Task.Run). Réplica del
             // SOAP: FECHA_DTP → DOCTOS_CM.FECHA (F_APLICAR_FACTURA.cs:387,1222).
             var fechaCompra = this.dtpFechaFac1.Value;
+            // Descripción escrita por el operador — se captura en el hilo de UI
+            // (el TextBox no puede leerse desde el Task.Run). El Core la respeta
+            // (recortada a 200) o cae a la de la recepción si viene vacía.
+            var descripcion = this.rtDesc.Text;
 
             ResultadoAplicacion r;
             try
             {
                 r = await Task.Run(
                     () => _aplicador.AplicarAsync(
-                        _empresa, _factura, articulo, condicionPago, serie,
+                        _empresa, _factura, articulo, condicionPago, serie, descripcion,
                         _usuarioMicrosip, fechaCompra, progreso, _cts.Token),
                     _cts.Token);
             }
