@@ -135,7 +135,15 @@ namespace PortalProveedoresService.Repositorios
 
             if (desde.HasValue)
             {
-                sql.Append("AND COALESCE(dc.FECHA_HORA_ULT_MODIF, dc.FECHA_HORA_CREACION) > @desde ");
+                // sql.Append("AND COALESCE(dc.FECHA_HORA_ULT_MODIF, dc.FECHA_HORA_CREACION) > @desde ");
+                sql.Append(@"AND (
+                                      COALESCE(dc.FECHA_HORA_ULT_MODIF, dc.FECHA_HORA_CREACION) > @desde
+                                   OR EXISTS (SELECT 1
+                                                FROM doctos_cm_ligas dcliga
+                                                JOIN doctos_cm dc2 ON (dc2.DOCTO_CM_ID = dcliga.DOCTO_CM_DEST_ID)
+                                               WHERE dcliga.DOCTO_CM_FTE_ID = dc.DOCTO_CM_ID
+                                                 AND COALESCE(dc2.FECHA_HORA_ULT_MODIF, dc2.FECHA_HORA_CREACION) > @desde)
+                                )");
             }
             else
             {
