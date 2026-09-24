@@ -403,6 +403,28 @@ namespace PortalProveedoresCore.Servicios
         /// </summary>
         Task<EmpresaConfig> ActualizarEmpresaAsync(int idMsp, string estatus, string diferencia, ValorSincDesde sincDesde, CancellationToken ct);
 
+        /// <summary>
+        /// GET /api/empresas/{id_msp}/override — overrides pendientes de la
+        /// empresa y el MAX actual de cada módulo. Lo usa el Configurador.
+        /// </summary>
+        Task<EstadoOverrideSinc> ObtenerOverridesAsync(int idMsp, CancellationToken ct);
+
+        /// <summary>
+        /// PUT /api/empresas/{id_msp}/override — arma (o reemplaza) el override
+        /// de un módulo (<see cref="ModulosSinc"/>). Si la fecha rebasa el MAX
+        /// del módulo el portal responde 422 (<see cref="PortalApiException"/>
+        /// con el mensaje en el cuerpo).
+        /// </summary>
+        Task<EstadoOverrideSinc> PonerOverrideAsync(int idMsp, string modulo, DateTime desde, CancellationToken ct);
+
+        /// <summary>
+        /// DELETE /api/empresas/{id_msp}/override/{modulo} — quita el override.
+        /// El Servicio lo llama para consumirlo tras el ack del portal y el
+        /// Configurador para cancelarlo. Idempotente: devuelve true si había
+        /// uno y se borró, false si ya no estaba.
+        /// </summary>
+        Task<bool> BorrarOverrideAsync(int idMsp, string modulo, CancellationToken ct);
+
         /// <summary>GET /api/dias — lista los 7 días de la semana con su flag DIA_RECIBE.</summary>
         Task<List<DiaRecepcion>> ListarDiasAsync(CancellationToken ct);
 

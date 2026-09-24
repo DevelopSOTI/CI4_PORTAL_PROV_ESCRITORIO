@@ -32,6 +32,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>configurador.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -53,6 +56,12 @@
     </Compile>
     <Compile Include="Formularios\FormPrincipal.Designer.cs">
       <DependentUpon>FormPrincipal.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Formularios\FormReSincronizar.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Formularios\FormReSincronizar.Designer.cs">
+      <DependentUpon>FormReSincronizar.cs</DependentUpon>
     </Compile>
     <Compile Include="Formularios\FormSincDesde.cs">
       <SubType>Form</SubType>
@@ -90,6 +99,9 @@
       <Project>{C0E5A1F1-9B1E-4C7A-B6F5-8A0E1D6F4D11}</Project>
       <Name>PortalProveedoresCore</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="configurador.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

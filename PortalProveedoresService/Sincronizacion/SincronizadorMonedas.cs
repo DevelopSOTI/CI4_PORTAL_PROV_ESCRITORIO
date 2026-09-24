@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using PortalProveedoresCore.Logging;
+using PortalProveedoresCore.Modelos;
 using PortalProveedoresCore.Servicios;
 using PortalProveedoresService.Repositorios;
 
@@ -88,7 +89,8 @@ namespace PortalProveedoresService.Sincronizacion
                         continue;
                     }
 
-                    var desde = ParsearCheckpoint(emp.checkpoints != null ? emp.checkpoints.monedas : null);
+                    var reSinc = new OverrideSincronizacion(emp, ModulosSinc.Monedas, "Monedas", nombreHumano);
+                    var desde  = reSinc.ResolverDesde(ParsearCheckpoint(emp.checkpoints != null ? emp.checkpoints.monedas : null));
 
                     EventoLog.Info("Monedas · " + nombreHumano + ": leyendo Microsip"
                         + (desde.HasValue ? " (desde " + desde.Value.ToString("yyyy-MM-dd HH:mm") + ")" : " (sincronización inicial)")
@@ -98,6 +100,7 @@ namespace PortalProveedoresService.Sincronizacion
                     if (monedas.Count == 0)
                     {
                         EventoLog.Info("Monedas · " + nombreHumano + ": sin cambios.");
+                        await reSinc.ConsumirAsync(_api, 0, ct).ConfigureAwait(false);
                         totalProcesadas++;   // se procesó OK aunque no había nada que enviar
                         continue;
                     }
@@ -111,6 +114,7 @@ namespace PortalProveedoresService.Sincronizacion
                         + ", sin cambios=" + r.unchanged
                         + ", errores=" + (r.errors == null ? 0 : r.errors.Length) + ")");
 
+                    await reSinc.ConsumirAsync(_api, r.errors == null ? 0 : r.errors.Length, ct).ConfigureAwait(false);
                     totalProcesadas++;
                 }
                 catch (Exception ex)

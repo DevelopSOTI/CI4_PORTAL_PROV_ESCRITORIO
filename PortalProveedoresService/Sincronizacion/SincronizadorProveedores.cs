@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using PortalProveedoresCore.Logging;
+using PortalProveedoresCore.Modelos;
 using PortalProveedoresCore.Servicios;
 using PortalProveedoresService.Repositorios;
 
@@ -79,7 +80,8 @@ namespace PortalProveedoresService.Sincronizacion
                         continue;
                     }
 
-                    var desde = ParsearCheckpoint(emp.checkpoints != null ? emp.checkpoints.proveedores : null);
+                    var reSinc = new OverrideSincronizacion(emp, ModulosSinc.Proveedores, "Proveedores", nombreHumano);
+                    var desde  = reSinc.ResolverDesde(ParsearCheckpoint(emp.checkpoints != null ? emp.checkpoints.proveedores : null));
 
                     EventoLog.Info("Proveedores · " + nombreHumano + ": leyendo Microsip"
                         + (desde.HasValue ? " (desde " + desde.Value.ToString("yyyy-MM-dd HH:mm") + ")" : " (sincronización inicial)")
@@ -91,6 +93,7 @@ namespace PortalProveedoresService.Sincronizacion
                         EventoLog.Info("Proveedores · " + nombreHumano + ": sin cambios.");
                         // La empresa SÍ se procesó (verificamos que no había nada
                         // nuevo); cuenta como OK para el resumen final.
+                        await reSinc.ConsumirAsync(_api, 0, ct).ConfigureAwait(false);
                         totalProcesadas++;
                         continue;
                     }
@@ -104,6 +107,7 @@ namespace PortalProveedoresService.Sincronizacion
                         + ", sin cambios=" + r.unchanged
                         + ", errores=" + (r.errors == null ? 0 : r.errors.Length) + ")");
 
+                    await reSinc.ConsumirAsync(_api, r.errors == null ? 0 : r.errors.Length, ct).ConfigureAwait(false);
                     totalProcesadas++;
                 }
                 catch (Exception ex)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Web.Script.Serialization;
 
 namespace PortalProveedoresCore.Pipes
@@ -113,12 +114,43 @@ namespace PortalProveedoresCore.Pipes
             // Segunda pasada: deserializar al subtipo concreto.
             try
             {
-                return (MensajeBase) _json.Deserialize(lineaJson, clrType);
+                var msg = (MensajeBase) _json.Deserialize(lineaJson, clrType);
+                return AHoraLocal(msg);
             }
             catch
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// JavaScriptSerializer manda las fechas como instante UTC ("\/Date(ms)\/")
+        /// y al deserializarlas las devuelve con Kind=Utc. Quien las pinte con
+        /// ToString("HH:mm:ss") mostraría la hora UTC (en México, 6 horas
+        /// adelantada). Aquí se regresan a la hora local del equipo, una sola vez
+        /// y para todos los campos DateTime / DateTime? del mensaje.
+        /// </summary>
+        private static MensajeBase AHoraLocal(MensajeBase msg)
+        {
+            if (msg == null) return null;
+
+            foreach (var p in msg.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (!p.CanRead || !p.CanWrite) continue;
+
+                if (p.PropertyType == typeof(DateTime))
+                {
+                    var v = (DateTime) p.GetValue(msg, null);
+                    if (v.Kind == DateTimeKind.Utc) p.SetValue(msg, v.ToLocalTime(), null);
+                }
+                else if (p.PropertyType == typeof(DateTime?))
+                {
+                    var v = (DateTime?) p.GetValue(msg, null);
+                    if (v.HasValue && v.Value.Kind == DateTimeKind.Utc) p.SetValue(msg, (DateTime?) v.Value.ToLocalTime(), null);
+                }
+            }
+
+            return msg;
         }
     }
 }

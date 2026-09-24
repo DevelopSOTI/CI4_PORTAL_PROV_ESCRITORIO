@@ -107,6 +107,7 @@ namespace PortalProveedoresConfigurador.Formularios
             this.lblEstadoActualLabel = new System.Windows.Forms.Label();
             this.lblEstadoActualValor = new System.Windows.Forms.Label();
             this.btnRefrescarEstado = new System.Windows.Forms.Button();
+            this.btnSincronizarAhora = new System.Windows.Forms.Button();
             this.btnGuardarServicio = new System.Windows.Forms.Button();
             this.btnInstalarServicio = new System.Windows.Forms.Button();
             this.btnDesinstalarServicio = new System.Windows.Forms.Button();
@@ -127,6 +128,7 @@ namespace PortalProveedoresConfigurador.Formularios
             this.colEmpEstatus = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.colEmpDiferencia = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             this.colEmpSincDesde = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colEmpReSinc = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colEmpUltSinc = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.lblEstadoEmpresas = new System.Windows.Forms.Label();
             this.cardDias = new System.Windows.Forms.Panel();
@@ -646,6 +648,7 @@ namespace PortalProveedoresConfigurador.Formularios
             this.cardServicio.Controls.Add(this.btnDesinstalarServicio);
             this.cardServicio.Controls.Add(this.btnInstalarServicio);
             this.cardServicio.Controls.Add(this.btnGuardarServicio);
+            this.cardServicio.Controls.Add(this.btnSincronizarAhora);
             this.cardServicio.Controls.Add(this.btnRefrescarEstado);
             this.cardServicio.Controls.Add(this.lblEstadoActualValor);
             this.cardServicio.Controls.Add(this.lblEstadoActualLabel);
@@ -761,6 +764,24 @@ namespace PortalProveedoresConfigurador.Formularios
             this.btnRefrescarEstado.Text = "Refrescar";
             this.btnRefrescarEstado.UseVisualStyleBackColor = false;
             this.btnRefrescarEstado.Click += new System.EventHandler(this.btnRefrescarEstado_Click);
+
+            // "Sincronizar ahora": brinca el timer del servicio por única vez.
+            // No requiere UAC (solo señala un evento global del servicio).
+            this.btnSincronizarAhora.BackColor = System.Drawing.Color.White;
+            this.btnSincronizarAhora.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSincronizarAhora.Enabled = false;
+            this.btnSincronizarAhora.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btnSincronizarAhora.FlatAppearance.BorderSize = 1;
+            this.btnSincronizarAhora.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(239, 246, 255);
+            this.btnSincronizarAhora.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSincronizarAhora.Font = new System.Drawing.Font("Segoe UI Semibold", 9F);
+            this.btnSincronizarAhora.ForeColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btnSincronizarAhora.Location = new System.Drawing.Point(350, 236);
+            this.btnSincronizarAhora.Name = "btnSincronizarAhora";
+            this.btnSincronizarAhora.Size = new System.Drawing.Size(150, 28);
+            this.btnSincronizarAhora.Text = "Sincronizar ahora";
+            this.btnSincronizarAhora.UseVisualStyleBackColor = false;
+            this.btnSincronizarAhora.Click += new System.EventHandler(this.btnSincronizarAhora_Click);
 
             // Fila de 4 botones de acción del servicio. Todos requieren UAC; el
             // habilitar/deshabilitar de cada uno depende del estado en vivo.
@@ -1078,7 +1099,7 @@ namespace PortalProveedoresConfigurador.Formularios
             this.dgvEmpresas.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.dgvEmpresas.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
                 this.colEmpIdMsp, this.colEmpNombre, this.colEmpNombreLargo, this.colEmpRfc,
-                this.colEmpEstatus, this.colEmpDiferencia, this.colEmpSincDesde, this.colEmpUltSinc});
+                this.colEmpEstatus, this.colEmpDiferencia, this.colEmpSincDesde, this.colEmpReSinc, this.colEmpUltSinc});
             this.dgvEmpresas.EnableHeadersVisualStyles = false;
             this.dgvEmpresas.GridColor = System.Drawing.Color.FromArgb(226, 232, 240);
             this.dgvEmpresas.Location = new System.Drawing.Point(28, 140);
@@ -1131,6 +1152,13 @@ namespace PortalProveedoresConfigurador.Formularios
             this.colEmpSincDesde.FillWeight = 14F;
             this.colEmpSincDesde.ToolTipText = "Doble-click para cambiar. Sin filtro = sincronizar toda la historia.";
             this.colEmpSincDesde.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(37, 99, 235);
+
+            this.colEmpReSinc.HeaderText = "Re-sincronizar";
+            this.colEmpReSinc.Name = "colEmpReSinc";
+            this.colEmpReSinc.ReadOnly = true;
+            this.colEmpReSinc.FillWeight = 14F;
+            this.colEmpReSinc.ToolTipText = "Doble-click para volver a traer módulos desde una fecha (un solo uso).";
+            this.colEmpReSinc.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(37, 99, 235);
 
             this.colEmpUltSinc.HeaderText = "Última sync";
             this.colEmpUltSinc.Name = "colEmpUltSinc";
@@ -1470,6 +1498,7 @@ namespace PortalProveedoresConfigurador.Formularios
         private System.Windows.Forms.DataGridViewComboBoxColumn colEmpEstatus;
         private System.Windows.Forms.DataGridViewCheckBoxColumn colEmpDiferencia;
         private System.Windows.Forms.DataGridViewTextBoxColumn colEmpSincDesde;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colEmpReSinc;
         private System.Windows.Forms.DataGridViewTextBoxColumn colEmpUltSinc;
         private System.Windows.Forms.Label lblEstadoEmpresas;
 
@@ -1485,6 +1514,7 @@ namespace PortalProveedoresConfigurador.Formularios
         private System.Windows.Forms.Label lblEstadoActualLabel;
         private System.Windows.Forms.Label lblEstadoActualValor;
         private System.Windows.Forms.Button btnRefrescarEstado;
+        private System.Windows.Forms.Button btnSincronizarAhora;
         private System.Windows.Forms.Button btnGuardarServicio;
         private System.Windows.Forms.Button btnInstalarServicio;
         private System.Windows.Forms.Button btnDesinstalarServicio;

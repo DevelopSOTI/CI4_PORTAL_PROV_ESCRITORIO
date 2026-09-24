@@ -71,7 +71,8 @@ namespace PortalProveedoresService.Sincronizacion
                         continue;
                     }
 
-                    var desde = CalcularDesde(emp);
+                    var reSinc = new OverrideSincronizacion(emp, ModulosSinc.Creditos, "Créditos", nombreHumano);
+                    var desde  = reSinc.ResolverDesde(CalcularDesde(emp));
                     EventoLog.Info("Créditos · " + nombreHumano + ": leyendo Microsip"
                         + (desde.HasValue ? " (desde " + desde.Value.ToString("yyyy-MM-dd HH:mm") + ")" : " (últimos 90 días)")
                         + "...");
@@ -80,6 +81,7 @@ namespace PortalProveedoresService.Sincronizacion
                     if (creditos.Count == 0)
                     {
                         EventoLog.Info("Créditos · " + nombreHumano + ": sin cambios.");
+                        await reSinc.ConsumirAsync(_api, 0, ct).ConfigureAwait(false);
                         totalProcesadas++;
                         continue;
                     }
@@ -101,6 +103,7 @@ namespace PortalProveedoresService.Sincronizacion
                             EventoLog.Warning("Créditos · " + nombreHumano + " · ... y " + (r.errors.Length - max) + " errores más.");
                     }
 
+                    await reSinc.ConsumirAsync(_api, nErrores, ct).ConfigureAwait(false);
                     totalProcesadas++;
                 }
                 catch (Exception ex)

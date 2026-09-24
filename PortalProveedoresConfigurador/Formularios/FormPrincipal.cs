@@ -105,6 +105,12 @@ namespace PortalProveedoresConfigurador.Formularios
                 b.FlatAppearance.MouseOverBackColor = Tema.PrimaryHover;
             }
 
+            // -- Botón secundario con acento de marca ----------------------------
+            btnSincronizarAhora.ForeColor = Tema.Primary;
+            btnSincronizarAhora.FlatAppearance.BorderColor = Tema.Primary;
+            btnSincronizarAhora.FlatAppearance.MouseOverBackColor = Tema.Aclarar(Tema.Primary, 90);
+            colEmpReSinc.DefaultCellStyle.ForeColor = Tema.Primary;
+
             // -- Selección del grid en color primary tenue --------------------
             dgvParametros.DefaultCellStyle.SelectionBackColor = Tema.Aclarar(Tema.Primary, 80);
 
@@ -551,6 +557,7 @@ namespace PortalProveedoresConfigurador.Formularios
                 estatus,
                 DiferenciaABool(e.diferencia),
                 FormatearSincDesde(e.sinc_desde),
+                FormatearReSinc(e.overrides),
                 FormatearUltSinc(e.ult_sinc));
 
             // Si el estatus que vino del backend no coincide con los items del
@@ -593,6 +600,25 @@ namespace PortalProveedoresConfigurador.Formularios
             DateTime dt;
             if (DateTime.TryParse(raw, out dt)) return dt.ToString("dd/MM/yyyy HH:mm");
             return raw;
+        }
+
+        /// <summary>
+        /// Columna "Re-sincronizar": módulos con override de un solo uso
+        /// pendiente (el servicio los re-jala en su siguiente ciclo).
+        /// </summary>
+        private static string FormatearReSinc(OverridesSinc o)
+        {
+            if (o == null) return "—";
+
+            var nombres = new List<string>();
+            if (!string.IsNullOrWhiteSpace(o.almacenes))   nombres.Add("Almacenes");
+            if (!string.IsNullOrWhiteSpace(o.monedas))     nombres.Add("Monedas");
+            if (!string.IsNullOrWhiteSpace(o.proveedores)) nombres.Add("Proveedores");
+            if (!string.IsNullOrWhiteSpace(o.recepciones)) nombres.Add("Recepciones");
+            if (!string.IsNullOrWhiteSpace(o.creditos))    nombres.Add("Créditos");
+            if (!string.IsNullOrWhiteSpace(o.notas))       nombres.Add("Notas");
+
+            return nombres.Count == 0 ? "—" : "Pendiente: " + string.Join(", ", nombres);
         }
 
         /// <summary>
@@ -709,6 +735,12 @@ namespace PortalProveedoresConfigurador.Formularios
         {
             if (_cargandoEmpresas) return;
             if (e.RowIndex < 0)    return;
+
+            if (e.ColumnIndex == colEmpReSinc.Index)
+            {
+                AbrirModalReSincronizar(dgvEmpresas.Rows[e.RowIndex]);
+                return;
+            }
             if (e.ColumnIndex != colEmpSincDesde.Index) return;
 
             var row = dgvEmpresas.Rows[e.RowIndex];
@@ -735,6 +767,40 @@ namespace PortalProveedoresConfigurador.Formularios
             using (var dlg = new FormSincDesde(nombreEmpresa, fechaActual))
             {
                 return dlg.ShowDialog(this) == DialogResult.OK ? dlg.Resultado : null;
+            }
+        }
+
+        /// <summary>
+        /// Abre el modal de re-sincronización por módulo de la empresa de la
+        /// fila y, al cerrarse, refresca la columna con lo que quedó pendiente
+        /// en el portal (también si se canceló tras un guardado parcial).
+        /// </summary>
+        private void AbrirModalReSincronizar(DataGridViewRow row)
+        {
+            var idMsp = ToInt(row.Cells[colEmpIdMsp.Index].Value);
+            if (idMsp <= 0) return;
+
+            var api = ConstruirApi();
+            if (api == null) return;
+
+            var nombre = (row.Cells[colEmpNombreLargo.Index].Value as string)
+                      ?? (row.Cells[colEmpNombre.Index].Value as string) ?? "";
+
+            using (var dlg = new FormReSincronizar(api, idMsp, nombre))
+            {
+                var resultado = dlg.ShowDialog(this);
+                if (dlg.Resultado == null) return;
+
+                var original = EmpresaOriginal(idMsp);
+                if (original != null) original.overrides = dlg.Resultado;
+
+                _cargandoEmpresas = true;
+                try { row.Cells[colEmpReSinc.Index].Value = FormatearReSinc(dlg.Resultado); }
+                finally { _cargandoEmpresas = false; }
+
+                if (resultado == DialogResult.OK)
+                    MarcarEstadoEmpresas("Re-sincronización guardada para " + NombreVisualEmpresa(idMsp)
+                        + ". El servicio la aplica en su siguiente ciclo.", true);
             }
         }
 
@@ -1187,6 +1253,38 @@ namespace PortalProveedoresConfigurador.Formularios
         }
 
         /// <summary>
+        /// Pide al servicio un ciclo inmediato (brinca el timer por única vez)
+        /// vía el evento global <see cref="PortalProveedoresCore.Pipes.SenalForzarCiclo"/>. No usa el pipe
+        /// (ese slot es del Visor) ni requiere UAC. Fire-and-forget.
+        /// </summary>
+        private void btnSincronizarAhora_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (PortalProveedoresCore.Pipes.SenalForzarCiclo.Solicitar())
+                    MarcarEstadoServicio("Solicitud enviada: el servicio inicia un ciclo en unos segundos. Síguelo en el Visor.", true);
+                else
+                    MarcarEstadoServicio("El servicio no está en ejecución (o su versión aún no admite esta opción).", false);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                MarcarEstadoServicio("Windows no permitió avisar al servicio desde este usuario.", false);
+            }
+            catch (Exception ex)
+            {
+                MarcarEstadoServicio("No se pudo avisar al servicio: " + ex.Message, false);
+            }
+        }
+
+        private void MarcarEstadoServicio(string mensaje, bool? exito)
+        {
+            lblEstadoServicioMensaje.Text = mensaje;
+            if (exito == true)       lblEstadoServicioMensaje.ForeColor = Color.FromArgb(22, 163, 74);
+            else if (exito == false) lblEstadoServicioMensaje.ForeColor = Color.FromArgb(220, 38, 38);
+            else                     lblEstadoServicioMensaje.ForeColor = Color.FromArgb(100, 116, 139);
+        }
+
+        /// <summary>
         /// Consulta el SCM por el servicio cuyo nombre está en <c>txtServiceName</c>
         /// y refleja el resultado en el label de estado + habilitación de los
         /// 4 botones de acción. No requiere admin (consulta es lectura).
@@ -1262,6 +1360,9 @@ namespace PortalProveedoresConfigurador.Formularios
                     lblEstadoActualValor.ForeColor = Color.FromArgb(100, 116, 139);
                     break;
             }
+
+            // "Sincronizar ahora" solo tiene sentido con el servicio corriendo.
+            btnSincronizarAhora.Enabled = estado == EstadoServicio.Corriendo;
 
             // Habilitación de botones según el estado real del servicio.
             // Pending → todo deshabilitado para evitar dobles acciones mientras el SCM trabaja.
@@ -1633,6 +1734,8 @@ namespace PortalProveedoresConfigurador.Formularios
                 "Alterna entre mostrar y ocultar el API Key.");
             toolTip.SetToolTip(this.btnRefrescarEstado,
                 "Vuelve a consultar el estado del servicio en Windows.");
+            toolTip.SetToolTip(this.btnSincronizarAhora,
+                "Pide al servicio que corra un ciclo de sincronización ya, sin esperar al timer. No requiere permisos de administrador.");
             toolTip.SetToolTip(this.btnInstalarServicio,
                 "Registra el servicio en Windows con sc.exe create. Solicita permisos de administrador.");
             toolTip.SetToolTip(this.btnDesinstalarServicio,

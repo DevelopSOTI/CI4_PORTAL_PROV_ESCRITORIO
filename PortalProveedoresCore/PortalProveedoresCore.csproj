@@ -88,6 +88,7 @@
     <Compile Include="Pipes\ConstantesPipe.cs" />
     <Compile Include="Pipes\Eventos.cs" />
     <Compile Include="Pipes\MensajeBase.cs" />
+    <Compile Include="Pipes\SenalForzarCiclo.cs" />
     <Compile Include="Pipes\SerializadorMensajes.cs" />
     <Compile Include="Pipes\ServidorPipe.cs" />
     <Compile Include="Pipes\TiposMensaje.cs" />

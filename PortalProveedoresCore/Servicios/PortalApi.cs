@@ -742,6 +742,53 @@ namespace PortalProveedoresCore.Servicios
             }
         }
 
+        public async Task<EstadoOverrideSinc> ObtenerOverridesAsync(int idMsp, CancellationToken ct)
+        {
+            var ruta = "/api/empresas/" + idMsp + "/override";
+
+            using (var req = NuevaRequestSinCuerpo(HttpMethod.Get, ruta))
+            using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+            {
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                    throw new PortalApiException("GET " + ruta + " devolvió " + (int)resp.StatusCode, resp.StatusCode, body);
+
+                return _json.Deserialize<EstadoOverrideSinc>(body);
+            }
+        }
+
+        public async Task<EstadoOverrideSinc> PonerOverrideAsync(int idMsp, string modulo, DateTime desde, CancellationToken ct)
+        {
+            var ruta   = "/api/empresas/" + idMsp + "/override";
+            var cuerpo = _json.Serialize(new { modulo = modulo, desde = desde.ToString("yyyy-MM-dd HH:mm:ss") });
+
+            using (var req = NuevaRequest(HttpMethod.Put, ruta, cuerpo))
+            using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+            {
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                    throw new PortalApiException("PUT " + ruta + " devolvió " + (int)resp.StatusCode, resp.StatusCode, body);
+
+                return _json.Deserialize<EstadoOverrideSinc>(body);
+            }
+        }
+
+        public async Task<bool> BorrarOverrideAsync(int idMsp, string modulo, CancellationToken ct)
+        {
+            var ruta = "/api/empresas/" + idMsp + "/override/" + Uri.EscapeDataString(modulo);
+
+            using (var req = NuevaRequestSinCuerpo(HttpMethod.Delete, ruta))
+            using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+            {
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode)
+                    throw new PortalApiException("DELETE " + ruta + " devolvió " + (int)resp.StatusCode, resp.StatusCode, body);
+
+                var env = _json.Deserialize<RespuestaBorrarOverride>(body);
+                return env != null && env.borrado;
+            }
+        }
+
         public async Task<List<DiaRecepcion>> ListarDiasAsync(CancellationToken ct)
         {
             using (var req = NuevaRequestSinCuerpo(HttpMethod.Get, "/api/dias"))
@@ -858,6 +905,7 @@ namespace PortalProveedoresCore.Servicios
         private sealed class RespuestaFacturasAplicar      { public FacturaAplicar[]     facturas     { get; set; } }
         private sealed class RespuestaComplementosAplicar  { public ComplementoAplicar[] complementos { get; set; } }
         private sealed class RespuestaMarcarComplemento    { public bool                 ok           { get; set; } }
+        private sealed class RespuestaBorrarOverride       { public bool                 borrado      { get; set; } }
 
         private static HttpClient ConstruirHttpClient()
         {

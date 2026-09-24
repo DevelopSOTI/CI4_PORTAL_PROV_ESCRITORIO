@@ -70,6 +70,7 @@
     <Compile Include="Repositorios\ICacheEmpresasAutorizadas.cs" />
     <Compile Include="Repositorios\CacheEmpresasAutorizadas.cs" />
     <Compile Include="Sincronizacion\ISincronizador.cs" />
+    <Compile Include="Sincronizacion\OverrideSincronizacion.cs" />
     <Compile Include="Sincronizacion\SincronizadorEmpresas.cs" />
     <Compile Include="Sincronizacion\SincronizadorAlmacenes.cs" />
     <Compile Include="Sincronizacion\SincronizadorMonedas.cs" />

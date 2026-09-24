@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using PortalProveedoresCore.Logging;
+using PortalProveedoresCore.Modelos;
 using PortalProveedoresCore.Servicios;
 using PortalProveedoresService.Repositorios;
 
@@ -79,7 +80,8 @@ namespace PortalProveedoresService.Sincronizacion
                         continue;
                     }
 
-                    var desde = CalcularDesde(emp);
+                    var reSinc = new OverrideSincronizacion(emp, ModulosSinc.Recepciones, "Recepciones", nombreHumano);
+                    var desde  = reSinc.ResolverDesde(CalcularDesde(emp));
 
                     EventoLog.Info("Recepciones · " + nombreHumano + ": leyendo Microsip"
                         + (desde.HasValue ? " (desde " + desde.Value.ToString("yyyy-MM-dd HH:mm") + ")" : " (últimos 90 días)")
@@ -89,6 +91,7 @@ namespace PortalProveedoresService.Sincronizacion
                     if (recepciones.Count == 0)
                     {
                         EventoLog.Info("Recepciones · " + nombreHumano + ": sin cambios.");
+                        await reSinc.ConsumirAsync(_api, 0, ct).ConfigureAwait(false);
                         totalProcesadas++;
                         continue;
                     }
@@ -112,6 +115,7 @@ namespace PortalProveedoresService.Sincronizacion
                             EventoLog.Warning("Recepciones · " + nombreHumano + " · ... y " + (r.errors.Length - max) + " errores más.");
                     }
 
+                    await reSinc.ConsumirAsync(_api, nErrores, ct).ConfigureAwait(false);
                     totalProcesadas++;
                 }
                 catch (Exception ex)

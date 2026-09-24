@@ -34,6 +34,73 @@ namespace PortalProveedoresCore.Modelos
         /// Solo viene poblado cuando se invoca <c>ListarEmpresasAutorizadasAsync</c>.
         /// </summary>
         public CheckpointsCatalogos checkpoints { get; set; }
+
+        /// <summary>
+        /// Override de un solo uso por módulo (tabla SINC_OVERRIDE del portal):
+        /// fecha desde la que el operador pidió re-jalar ese módulo, o null.
+        /// Viene en los dos listados (Configurador y Servicio). El Servicio lo
+        /// aplica una vez y lo borra (DELETE) tras el ack del portal.
+        /// <c>null</c> completo = portal viejo sin la función.
+        /// </summary>
+        public OverridesSinc overrides { get; set; }
+    }
+
+    /// <summary>
+    /// Bloque <c>overrides</c> de GET /api/empresas. Mismos nombres que
+    /// <see cref="ModulosSinc"/>; cada valor es "YYYY-MM-DD HH:MM:SS" o null.
+    /// </summary>
+    public sealed class OverridesSinc
+    {
+        public string almacenes   { get; set; }
+        public string monedas     { get; set; }
+        public string proveedores { get; set; }
+        public string recepciones { get; set; }
+        public string creditos    { get; set; }
+        public string notas       { get; set; }
+
+        /// <summary>Valor crudo del override de un módulo (null si no hay).</summary>
+        public string De(string modulo)
+        {
+            switch (modulo)
+            {
+                case ModulosSinc.Almacenes:   return almacenes;
+                case ModulosSinc.Monedas:     return monedas;
+                case ModulosSinc.Proveedores: return proveedores;
+                case ModulosSinc.Recepciones: return recepciones;
+                case ModulosSinc.Creditos:    return creditos;
+                case ModulosSinc.Notas:       return notas;
+                default:                      return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Nombres de módulo que acepta /api/empresas/{id}/override. Uno por
+    /// sincronizador: créditos y notas comparten el MAX (tabla CREDITOS) pero
+    /// cada uno tiene su propio override.
+    /// </summary>
+    public static class ModulosSinc
+    {
+        public const string Almacenes   = "almacenes";
+        public const string Monedas     = "monedas";
+        public const string Proveedores = "proveedores";
+        public const string Recepciones = "recepciones";
+        public const string Creditos    = "creditos";
+        public const string Notas       = "notas";
+
+        public static readonly string[] Todos = { Almacenes, Monedas, Proveedores, Recepciones, Creditos, Notas };
+    }
+
+    /// <summary>
+    /// Respuesta de GET/PUT /api/empresas/{id}/override: overrides pendientes
+    /// y el MAX actual de cada módulo (tope que un override no puede rebasar).
+    /// </summary>
+    public sealed class EstadoOverrideSinc
+    {
+        public int                  emp_id_msp { get; set; }
+        public bool                 disponible { get; set; }  // false = falta la tabla en el portal
+        public OverridesSinc        overrides  { get; set; }
+        public CheckpointsCatalogos maximos    { get; set; }
     }
 
     /// <summary>
@@ -50,5 +117,20 @@ namespace PortalProveedoresCore.Modelos
         public string creditos    { get; set; }
         public string notas       { get; set; }
         // public string facturas { get; set; }
+
+        /// <summary>Valor crudo del checkpoint de un módulo (ver <see cref="ModulosSinc"/>).</summary>
+        public string De(string modulo)
+        {
+            switch (modulo)
+            {
+                case ModulosSinc.Almacenes:   return almacenes;
+                case ModulosSinc.Monedas:     return monedas;
+                case ModulosSinc.Proveedores: return proveedores;
+                case ModulosSinc.Recepciones: return recepciones;
+                case ModulosSinc.Creditos:    return creditos;
+                case ModulosSinc.Notas:       return notas;
+                default:                      return null;
+            }
+        }
     }
 }

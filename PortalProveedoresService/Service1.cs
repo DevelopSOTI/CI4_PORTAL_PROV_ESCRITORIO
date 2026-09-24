@@ -42,6 +42,11 @@ namespace PortalProveedoresService
         // Wakeup para CMD_FORZAR_CICLO. Se reasigna después de cada uso.
         private volatile TaskCompletionSource<bool> _wakeup;
 
+        // "Sincronizar ahora" desde otros procesos (Configurador): evento con
+        // nombre global, independiente del pipe (ver SenalForzarCiclo).
+        private EventWaitHandle      _senalForzar;
+        private RegisteredWaitHandle _registroSenal;
+
         // Resolutor EMPRESA_ID → NOMBRE_CORTO desde CONFIG.FDB. Vive por la
         // vida del proceso; se invalida al inicio de cada ciclo para que
         // renames en Microsip se reflejen en el siguiente.
@@ -57,6 +62,12 @@ namespace PortalProveedoresService
         private DateTime? _ultimoCicloTerminado;
         private bool?   _ultimoCicloOk;
         private bool    _pausado;
+
+        // True desde que el loop entra a EjecutarCicloAsync hasta que sale.
+        // _estado solo pasa a EjecutandoCiclo después de leer registros y
+        // armar dependencias, así que "forzar ciclo" necesita este flag para
+        // no encolar un ciclo extra en esa ventana.
+        private bool    _cicloEnCurso;
 
         // Progreso del ciclo actual: pasos definidos en esta vuelta y cuántos
         // ya terminaron. El Visor lo usa para la ProgressBar determinada.
@@ -100,6 +111,8 @@ namespace PortalProveedoresService
             _wakeup = NuevoWakeup();
             _cts    = new CancellationTokenSource();
 
+            EscucharSenalForzarCiclo();
+
             // 3) Anuncia "servicio iniciado" y arranca el loop.
             _canal.Publicar(new EventoServicioIniciado
             {
@@ -134,6 +147,9 @@ namespace PortalProveedoresService
                 EventoLog.Error("DetenerCiclo: " + ex.Message);
             }
 
+            if (_registroSenal != null) { try { _registroSenal.Unregister(null); } catch { } _registroSenal = null; }
+            if (_senalForzar   != null) { try { _senalForzar.Dispose(); }         catch { } _senalForzar   = null; }
+
             // Desconectar el hook antes de cerrar el canal para evitar publicar
             // post-mortem (que se descartarían pero ensucian el flujo).
             if (_hookLog != null) { EventoLog.Publicador -= _hookLog; _hookLog = null; }
@@ -159,6 +175,7 @@ namespace PortalProveedoresService
 
                 if (!enPausa)
                 {
+                    lock (_estadoLock) { _cicloEnCurso = true; }
                     try
                     {
                         await EjecutarCicloAsync(ct).ConfigureAwait(false);
@@ -167,6 +184,10 @@ namespace PortalProveedoresService
                     catch (Exception ex)
                     {
                         EventoLog.Error("Ciclo: " + ex.Message);
+                    }
+                    finally
+                    {
+                        lock (_estadoLock) { _cicloEnCurso = false; }
                     }
                 }
 
@@ -392,6 +413,54 @@ namespace PortalProveedoresService
             tcs.TrySetResult(true);
         }
 
+        /// <summary>
+        /// Brinca el timer por única vez: el siguiente ciclo arranca ya y el
+        /// intervalo normal sigue después. Punto único para el Visor
+        /// (cmd:forzar_ciclo por el pipe) y el Configurador (evento global).
+        /// </summary>
+        private void SolicitarForzarCiclo(string origen)
+        {
+            lock (_estadoLock)
+            {
+                if (_cicloEnCurso || _estado == EstadoServicio.EjecutandoCiclo)
+                {
+                    EventoLog.Warning("Ya hay un ciclo en curso; se ignora la solicitud de " + origen + ".");
+                    return;
+                }
+                if (_pausado)
+                {
+                    EventoLog.Warning("El servicio está en pausa; se ignora la solicitud de " + origen + ". Reanúdalo desde el Visor.");
+                    return;
+                }
+            }
+            EventoLog.Info(origen + " solicitó sincronizar ahora.");
+            Despertar();
+        }
+
+        /// <summary>
+        /// Crea el evento global de "Sincronizar ahora" y lo escucha en el
+        /// ThreadPool. Best-effort: si no se puede crear (p. ej. modo consola
+        /// sin privilegio para objetos Global\), el servicio sigue sin él.
+        /// </summary>
+        private void EscucharSenalForzarCiclo()
+        {
+            try
+            {
+                _senalForzar   = SenalForzarCiclo.Crear();
+                _registroSenal = ThreadPool.RegisterWaitForSingleObject(
+                    _senalForzar,
+                    (estado, porTimeout) => SolicitarForzarCiclo("El Configurador"),
+                    null,
+                    Timeout.Infinite,
+                    executeOnlyOnce: false);
+            }
+            catch (Exception ex)
+            {
+                EventoLog.Warning("No se pudo habilitar \"Sincronizar ahora\" para el Configurador: " + ex.Message);
+                if (_senalForzar != null) { try { _senalForzar.Dispose(); } catch { } _senalForzar = null; }
+            }
+        }
+
         // ====================================================================
         // Handler de comandos entrantes del Visor
         // ====================================================================
@@ -405,16 +474,7 @@ namespace PortalProveedoresService
                     break;
 
                 case TiposMensaje.CMD_FORZAR_CICLO:
-                    lock (_estadoLock)
-                    {
-                        if (_estado == EstadoServicio.EjecutandoCiclo)
-                        {
-                            _canal.Publicar(new EventoBitacora { nivel = NivelLog.Warning, mensaje = "Ya hay un ciclo en curso; ignorando cmd:forzar_ciclo.", fuente = "ServidorPipe" });
-                            return;
-                        }
-                    }
-                    EventoLog.Info("Visor solicitó forzar ciclo.");
-                    Despertar();
+                    SolicitarForzarCiclo("El Visor");
                     break;
 
                 case TiposMensaje.CMD_PAUSAR:
