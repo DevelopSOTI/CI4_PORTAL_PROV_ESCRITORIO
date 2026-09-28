@@ -351,7 +351,16 @@ namespace PortalProveedoresEscritorio.Formularios
                 foreach (var s in series) this.cbSerie.Items.Add(s);
                 this.cbSerie.Enabled = true;
 
-                int idx = this.cbSerie.Items.IndexOf("WEB");
+                // Preselección: la última serie que el operador usó en ESTA
+                // empresa (persistida por-usuario en %LocalAppData%); si no hay,
+                // "WEB"; si tampoco, la primera. Réplica de ULTIMA_SERIE_COMPRA
+                // del SOAP, pero por-empresa (key = NOMBRE_CORTO).
+                string ultimaSerie = PreferenciasUsuario.LeerString(
+                    PrefSerieSub, _empresa.NombreCorto ?? "", "");
+                int idx = !string.IsNullOrEmpty(ultimaSerie)
+                    ? this.cbSerie.Items.IndexOf(ultimaSerie)
+                    : -1;
+                if (idx < 0) idx = this.cbSerie.Items.IndexOf("WEB");
                 this.cbSerie.SelectedIndex = idx >= 0 ? idx : 0;
             }
             catch
@@ -361,6 +370,28 @@ namespace PortalProveedoresEscritorio.Formularios
                 this.cbSerie.SelectedIndex = 0;
                 this.cbSerie.Enabled = false;
             }
+        }
+
+        // Archivo de preferencias (%LocalAppData%\SOTI\PortalProveedoresEscritorio\
+        // UltimaSerieCompra.xml) donde se recuerda, POR EMPRESA (key = NOMBRE_CORTO),
+        // la última serie de compra elegida por el operador.
+        private const string PrefSerieSub = "UltimaSerieCompra";
+
+        /// <summary>
+        /// Al cerrar el modal persistimos la serie seleccionada para esta empresa,
+        /// para que la próxima vez que se abra quede preseleccionada (ver
+        /// <see cref="CargarSeriesAsync"/>). Best-effort: nunca interrumpe el cierre.
+        /// </summary>
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            try
+            {
+                var s = ExtraerNombreSerie();
+                if (!string.IsNullOrEmpty(s))
+                    PreferenciasUsuario.EscribirString(PrefSerieSub, _empresa.NombreCorto ?? "", s);
+            }
+            catch { /* best-effort — persistir la serie nunca debe bloquear el cierre */ }
         }
 
         private void BtnBuscarArticulo_Click(object sender, EventArgs e)

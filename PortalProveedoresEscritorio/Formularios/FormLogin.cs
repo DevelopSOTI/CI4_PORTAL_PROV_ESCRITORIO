@@ -26,6 +26,11 @@ namespace PortalProveedoresEscritorio.Formularios
     {
         private RegistrosWindows _reg;
 
+        // Archivo de preferencias (%LocalAppData%\SOTI\PortalProveedoresEscritorio\
+        // Login.xml) donde se recuerda el login del operador cuando no se puede
+        // escribir HKLM sin elevación. El password se cifra con DPAPI CurrentUser.
+        private const string LoginSub = "Login";
+
         public FormLogin()
         {
             InitializeComponent();
@@ -108,10 +113,20 @@ namespace PortalProveedoresEscritorio.Formularios
                 return;
             }
 
-            txtUsuario.Text = _reg.MICRO_USER1 ?? "";
-            if (!string.IsNullOrEmpty(_reg.MICRO_PASS1))
+            // "Recordar contraseña": preferimos el store por-usuario
+            // (%LocalAppData%, no requiere elevación); si viene vacío, caemos a
+            // HKLM (equipos que ya lo tenían ahí o sembrado por el Configurador).
+            // El password se guarda cifrado DPAPI CurrentUser en el XML.
+            string usuarioRec = PreferenciasUsuario.LeerString(LoginSub, "MICRO_USER1", "");
+            string passRec    = RegistrosWindows.DesprotegerUsuario(
+                                    PreferenciasUsuario.LeerString(LoginSub, "MICRO_PASS1", ""));
+            if (string.IsNullOrEmpty(usuarioRec)) usuarioRec = _reg.MICRO_USER1 ?? "";
+            if (string.IsNullOrEmpty(passRec))    passRec    = _reg.MICRO_PASS1 ?? "";
+
+            txtUsuario.Text = usuarioRec;
+            if (!string.IsNullOrEmpty(passRec))
             {
-                txtPassword.Text = _reg.MICRO_PASS1;
+                txtPassword.Text = passRec;
                 chkRecordar.Checked = true;
             }
         }
@@ -193,6 +208,18 @@ namespace PortalProveedoresEscritorio.Formularios
             {
                 _reg.EscribirRegistros("MICRO_USER1", usuario, false);
                 _reg.EscribirRegistros("MICRO_PASS1", chkRecordar.Checked ? password : "", false);
+            }
+            catch { }
+
+            // Persistencia por-usuario en %LocalAppData% (NO requiere elevación):
+            // en equipos donde no se puede escribir HKLM sin admin, ESTE es el
+            // único guardado real del "recordar". El usuario va en claro (no es
+            // secreto); el password se cifra con DPAPI CurrentUser.
+            try
+            {
+                PreferenciasUsuario.EscribirString(LoginSub, "MICRO_USER1", usuario);
+                PreferenciasUsuario.EscribirString(LoginSub, "MICRO_PASS1",
+                    chkRecordar.Checked ? RegistrosWindows.ProtegerUsuario(password) : "");
             }
             catch { }
 

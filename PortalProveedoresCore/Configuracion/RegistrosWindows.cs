@@ -219,6 +219,45 @@ namespace PortalProveedoresCore.Configuracion
             }
         }
 
+        // Cifrado DPAPI ámbito CurrentUser (por-usuario), para datos que NO viven
+        // en HKLM sino en %LocalAppData% del operador — p.ej. el "recordar
+        // contraseña" del login cuando el equipo no permite escribir HKLM sin
+        // elevación. Solo el mismo usuario de Windows puede descifrarlo. Mismo
+        // prefijo/convención que Proteger/Desproteger (LocalMachine).
+        public static string ProtegerUsuario(string plano)
+        {
+            if (string.IsNullOrEmpty(plano)) return plano ?? "";
+            try
+            {
+                byte[] datos = System.Text.Encoding.UTF8.GetBytes(plano);
+                byte[] cifr  = System.Security.Cryptography.ProtectedData.Protect(
+                    datos, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                return DpapiPrefijo + Convert.ToBase64String(cifr);
+            }
+            catch
+            {
+                return plano; // si DPAPI fallara, no perdemos el dato
+            }
+        }
+
+        public static string DesprotegerUsuario(string almacenado)
+        {
+            if (string.IsNullOrEmpty(almacenado)) return almacenado;
+            if (!almacenado.StartsWith(DpapiPrefijo, StringComparison.Ordinal))
+                return almacenado; // texto plano — se devuelve tal cual
+            try
+            {
+                byte[] cifr  = Convert.FromBase64String(almacenado.Substring(DpapiPrefijo.Length));
+                byte[] datos = System.Security.Cryptography.ProtectedData.Unprotect(
+                    cifr, null, System.Security.Cryptography.DataProtectionScope.CurrentUser);
+                return System.Text.Encoding.UTF8.GetString(datos);
+            }
+            catch
+            {
+                return almacenado; // no se pudo descifrar — devolvemos crudo
+            }
+        }
+
         // Escribe un valor cifrándolo SOLO si su nombre está en la lista de sensibles.
         private static void SetValueSeguro(RegistryKey key, string nombre, string valor)
         {
