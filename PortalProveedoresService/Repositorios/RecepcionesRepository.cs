@@ -56,8 +56,16 @@ namespace PortalProveedoresService.Repositorios
                 //    tabla no existe se ignora con COALESCE.
                 var tieneUsoCfdi = await TablaTieneColumnaAsync(con.FBC, "LIBRES_REC_CM", "USO_CFDI", ct).ConfigureAwait(false);
 
+                // FECHA_HORA_CANCELACION (DOCTOS_CM): al CANCELAR una recepción
+                // Microsip NO toca FECHA_HORA_ULT_MODIF, solo setea esta columna
+                // (null mientras no se cancele), así que el filtro @desde por
+                // ULT_MODIF no la detecta y las canceladas no se sincronizaban.
+                // La usamos aparte en LeerCabecerasAsync. Columna opcional (mismo
+                // patrón defensivo que USO_CFDI) por si un esquema viejo no la tuviera.
+                var tieneFechaCancelacion = await TablaTieneColumnaAsync(con.FBC, "DOCTOS_CM", "FECHA_HORA_CANCELACION", ct).ConfigureAwait(false);
+
                 // ---- Cabecera ----
-                resultado = await LeerCabecerasAsync(con.FBC, desde, ct, tieneUsoCfdi).ConfigureAwait(false);
+                resultado = await LeerCabecerasAsync(con.FBC, desde, ct, tieneUsoCfdi, tieneFechaCancelacion).ConfigureAwait(false);
                 if (resultado.Count == 0) return resultado;
 
                 // ---- Detalle (batch único) ----
@@ -92,7 +100,7 @@ namespace PortalProveedoresService.Repositorios
         // listas_atributos, condiciones_pago_cp, plazos_cond_pag_cp)
         // ====================================================================
 
-        private static async Task<List<RecepcionMicrosip>> LeerCabecerasAsync(FbConnection con, DateTime? desde, CancellationToken ct, bool tieneUsoCfdi)
+        private static async Task<List<RecepcionMicrosip>> LeerCabecerasAsync(FbConnection con, DateTime? desde, CancellationToken ct, bool tieneUsoCfdi, bool tieneFechaCancelacion)
         {
             var lista = new List<RecepcionMicrosip>();
 
@@ -136,8 +144,22 @@ namespace PortalProveedoresService.Repositorios
             if (desde.HasValue)
             {
                 // sql.Append("AND COALESCE(dc.FECHA_HORA_ULT_MODIF, dc.FECHA_HORA_CREACION) > @desde ");
+                //
+                // Detección de cambios (hand-tuned — NO simplificar). Una recepción
+                // se re-sincroniza si:
+                //  1) la recepción misma cambió (ULT_MODIF o, en su defecto, CREACION);
+                //  2) se CANCELÓ en Microsip — al cancelar NO se toca
+                //     FECHA_HORA_ULT_MODIF, solo se setea FECHA_HORA_CANCELACION
+                //     (null mientras no se cancele); el portal ya marca ESTATUS='C'
+                //     al recibirla. Se agrega solo si la columna existe;
+                //  3) su compra ligada cambió (facturación directa en Microsip, que
+                //     tampoco toca la ULT_MODIF de la recepción origen) → OR EXISTS.
+                string condCancel = tieneFechaCancelacion
+                    ? "OR dc.FECHA_HORA_CANCELACION > @desde "
+                    : "";
                 sql.Append(@"AND (
                                       COALESCE(dc.FECHA_HORA_ULT_MODIF, dc.FECHA_HORA_CREACION) > @desde
+                                   " + condCancel + @"
                                    OR EXISTS (SELECT 1
                                                 FROM doctos_cm_ligas dcliga
                                                 JOIN doctos_cm dc2 ON (dc2.DOCTO_CM_ID = dcliga.DOCTO_CM_DEST_ID)
